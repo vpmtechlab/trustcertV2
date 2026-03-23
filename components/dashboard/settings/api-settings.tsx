@@ -1,0 +1,150 @@
+"use client";
+
+import React, { useState } from "react";
+import {
+  Eye,
+  EyeOff,
+  Copy,
+  RefreshCw,
+  AlertCircle,
+  AlertTriangle,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export function ApiSettings() {
+  const [apiKey] = useState("api_live_abc123xyz789def456ghi000");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const handleCopyApiKey = () => {
+    navigator.clipboard.writeText(apiKey);
+    toast.success("API Key copied to clipboard!");
+  };
+
+  const handleRegenerateKey = () => {
+    setShowConfirmModal(true);
+  };
+
+  const confirmRegenerate = () => {
+    toast.success("API Key regenerated!");
+    setShowConfirmModal(false);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-lg font-bold text-gray-900">API Configuration</h2>
+        <p className="text-sm text-gray-500">
+          Manage your API keys and access tokens for external integrations.
+        </p>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="p-2 bg-purple-50 rounded-lg shrink-0">
+            <div className="w-6 h-6 rounded-full border-2 border-purple-500 flex items-center justify-center text-xs font-bold text-purple-600">
+              K
+            </div>
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900">Secret Key</h3>
+            <p className="text-sm text-gray-500">
+              Use this key to authenticate your server-side API requests. Keep
+              it secret and never share it in client-side code.
+            </p>
+          </div>
+        </div>
+
+        {/* Key Display */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex-1 flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 font-mono text-sm text-gray-700 relative group transition-colors hover:border-gray-300">
+            <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+              {showApiKey ? apiKey : "api_live_••••••••••••••••••••••••"}
+            </span>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-md transition-all"
+                title={showApiKey ? "Hide Key" : "Show Key"}
+              >
+                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+              <button
+                onClick={handleCopyApiKey}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-md transition-all"
+                title="Copy Key"
+              >
+                <Copy size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <p className="text-xs text-gray-400">Created on Jan 24, 2026</p>
+          <Button
+            variant="ghost"
+            onClick={handleRegenerateKey}
+            className="flex items-center gap-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors w-full sm:w-auto"
+          >
+            <RefreshCw size={14} />
+            Roll Key
+          </Button>
+        </div>
+      </div>
+
+      {/* Info Box */}
+      <div className="flex gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 text-amber-800">
+        <AlertCircle className="shrink-0" size={20} />
+        <div className="text-sm">
+          <p className="font-semibold mb-1">Security Best Practices</p>
+          <ul className="list-disc list-inside space-y-1 opacity-90">
+            <li>Rotate your keys periodically (e.g. every 90 days)</li>
+            <li>Review usage logs regularly for suspicious activity</li>
+            <li>Immediately roll your key if you suspect it has been compromised</li>
+          </ul>
+        </div>
+      </div>
+
+      <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <AlertDialogContent className="sm:max-w-sm">
+          <AlertDialogHeader className="flex flex-col items-center">
+            <div className="flex justify-center mb-4 w-full">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="text-red-600" size={24} />
+              </div>
+            </div>
+            <AlertDialogTitle className="text-xl">Regenerate API Key?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Are you sure you want to regenerate your API key? Your current key
+              will be invalidated immediately and any applications using it will
+              stop working.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-3 !justify-between mt-4">
+            <AlertDialogCancel className="mt-0 flex-1">Cancel</AlertDialogCancel>
+            <Button
+              onClick={confirmRegenerate}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              Regenerate
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

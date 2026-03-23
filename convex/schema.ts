@@ -1,0 +1,75 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  companies: defineTable({
+    name: v.string(),
+    reg_number: v.string(),
+    no_of_employees: v.optional(v.number()),
+    year_founded: v.optional(v.number()),
+    country: v.string(),
+    location: v.string(),
+    domain: v.string(),
+    support_email: v.string(),
+    status: v.string(), // e.g., 'active', 'inactive'
+    isSuperAdmin: v.optional(v.boolean()), // Flag for VPPMTechLab
+    createdAt: v.number(), // Unix timestamp
+  }).index("by_name", ["name"]),
+
+  users: defineTable({
+    companyId: v.id("companies"),
+    firstName: v.string(),
+    surname: v.string(),
+    email: v.string(),
+    password: v.optional(v.string()), // Added for local auth
+    role: v.string(), // e.g., 'admin', 'viewer'
+    status: v.string(), // e.g., 'active', 'inactive'
+    passwordHash: v.optional(v.string()), // Optional, depending on Auth provider
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"]).index("by_email", ["email"]),
+
+  apiKeys: defineTable({
+    companyId: v.id("companies"),
+    keyHash: v.string(), // Hashed API Key
+    name: v.string(), // e.g., 'Live Key', 'Test Key'
+    isActive: v.boolean(),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"]),
+
+  balances: defineTable({
+    companyId: v.id("companies"),
+    availableBalance: v.number(),
+    updatedAt: v.number(),
+  }).index("by_company", ["companyId"]),
+
+  transactions: defineTable({
+    companyId: v.id("companies"),
+    type: v.string(), // e.g., 'top_up', 'verification_fee'
+    amount: v.number(),
+    status: v.string(), // e.g., 'success', 'pending', 'failed'
+    referenceId: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"]),
+
+  jobs: defineTable({
+    companyId: v.id("companies"),
+    userId: v.id("users"), // the user who initiated it
+    serviceType: v.string(), // e.g., 'kyc', 'kyb'
+    entityData: v.any(), // JSON payload of the requested entity (firstName, reg_number, etc.)
+    resultStatus: v.string(), // e.g., 'pending', 'approved', 'failed', 'not_found_on_list'
+    message: v.optional(v.string()),
+    source: v.string(), // e.g., 'web_api', 'rest_api'
+    resultPayload: v.optional(v.any()), // The simulated/returned JSON from BRS/DCI/iTax
+    feesCharged: v.optional(v.number()), // Keep track of how much was charged
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"]).index("by_user", ["userId"]),
+
+  pricing: defineTable({
+    serviceCategory: v.string(), // e.g., 'kyc', 'kyb', 'aml'
+    serviceId: v.string(), // e.g., 'national_id', 'passport'
+    serviceName: v.string(), // e.g., 'National ID Verification'
+    price: v.number(), // e.g. 15.00
+    updatedAt: v.number(),
+  }).index("by_service", ["serviceId"]),
+});

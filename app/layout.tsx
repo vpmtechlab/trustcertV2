@@ -1,0 +1,36 @@
+import type { Metadata } from "next";
+import { Urbanist } from "next/font/google";
+import { AppProvider } from "@/components/providers/app-provider";
+import { ConvexClientProvider } from "@/components/providers/convex-client-provider";
+import "./globals.css";
+
+const urbanist = Urbanist({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Trustcert",
+  description: "Compliance Management",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="en"
+      className={`${urbanist.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <ConvexClientProvider>
+          <AppProvider>
+            {children}
+          </AppProvider>
+        </ConvexClientProvider>
+      </body>
+    </html>
+  );
+}
