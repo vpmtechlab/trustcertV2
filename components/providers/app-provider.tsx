@@ -18,6 +18,7 @@ export interface Member {
   last_name?: string;
   email?: string;
   role?: string;
+  profile_image_url?: string;
   [key: string]: unknown;
 }
 

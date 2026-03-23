@@ -13,7 +13,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -134,7 +133,7 @@ export function ApiSettings() {
               stop working.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row gap-3 !justify-between mt-4">
+          <AlertDialogFooter className="flex-row gap-3 justify-between! mt-4">
             <AlertDialogCancel className="mt-0 flex-1">Cancel</AlertDialogCancel>
             <Button
               onClick={confirmRegenerate}
