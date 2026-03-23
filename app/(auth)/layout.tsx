@@ -3,7 +3,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, CheckCircle2, Users, Globe, Zap } from "lucide-react";
-import Image from "next/image";
 
 export default function AuthLayout({
   children,
