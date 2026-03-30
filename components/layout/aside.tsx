@@ -13,7 +13,8 @@ import {
   MdVerified, 
   MdReceipt, 
   MdSettings, 
-  MdHelpOutline
+  MdHelpOutline,
+  MdHistory
 } from "react-icons/md";
 import { LogOut, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 
@@ -21,10 +22,11 @@ const clientNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: MdDashboard, exact: true },
   { label: "Analytics", href: "/dashboard/analytics", icon: MdAnalytics },
   { label: "Job List", href: "/dashboard/jobs", icon: MdWorkOutline },
-  { label: "User Management", href: "/dashboard/user-management", icon: MdPeopleOutline },
+  { label: "User Management", href: "/dashboard/users", icon: MdPeopleOutline },
   { label: "Verification", href: "/dashboard/verification", icon: MdVerified },
   { label: "Reports", href: "/dashboard/reports", icon: MdReceipt },
   { label: "Billing", href: "/dashboard/billing", icon: MdReceipt },
+  { label: "Audit Logs", href: "/dashboard/audit", icon: MdHistory },
   { label: "Settings", href: "/dashboard/settings", icon: MdSettings },
 ];
 
@@ -35,6 +37,7 @@ const adminNavItems = [
   { label: "Global Billing", href: "/admin/billing", icon: MdReceipt },
   { label: "Users & Roles", href: "/admin/users", icon: MdPeopleOutline },
   { label: "Reports", href: "/admin/reports", icon: MdAnalytics },
+  { label: "Audit Logs", href: "/admin/audit", icon: MdHistory },
 ];
 
 export function Aside() {

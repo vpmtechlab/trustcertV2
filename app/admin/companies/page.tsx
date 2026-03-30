@@ -3,7 +3,7 @@
 import React from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Building2, MoreHorizontal, User, ShieldAlert } from "lucide-react";
+import { Building2, User, ShieldAlert } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,10 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function CompaniesAdminPage() {
+  const router = useRouter();
   const companies = useQuery(api.admin.getAllCompanies);
+
+  const handleViewDetails = (companyId: string) => {
+    router.push(`/admin/companies/${companyId}`);
+  };
 
   if (companies === undefined) {
     return (
@@ -88,9 +94,12 @@ export default function CompaniesAdminPage() {
                 <TableCell className="text-right text-gray-500 text-sm">
                   {new Date(company.createdAt).toLocaleDateString()}
                 </TableCell>
-                <TableCell>
-                  <button className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100">
-                    <MoreHorizontal size={16} />
+                <TableCell className="text-right">
+                  <button 
+                    onClick={() => handleViewDetails(company._id)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/5 rounded-lg transition-colors border border-transparent hover:border-primary/20"
+                  >
+                    <Eye size={14} /> View Details
                   </button>
                 </TableCell>
               </TableRow>

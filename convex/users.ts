@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
+import { recordNotification } from "./audit";
 
 // Mock to verify an API key
 export const verifyApiKey = query({
@@ -150,6 +151,56 @@ export const login = mutation({
       companyId: user.companyId,
       role: user.role,
       email: user.email,
+      first_name: user.firstName,
+      last_name: user.surname,
     };
   },
 });
+
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+    return {
+      id: user._id,
+      first_name: user.firstName,
+      last_name: user.surname,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+      profile_image_url: "", // Add if available in future
+    };
+  },
+});
+
+export const updateUserProfile = mutation({
+  args: {
+    userId: v.id("users"),
+    firstName: v.string(),
+    surname: v.string(),
+    role: v.optional(v.string()),
+    // bio is not in schema but we can store it or add it to schema
+  },
+  handler: async (ctx, args) => {
+    const { userId, ...updateData } = args;
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(userId, updateData);
+
+    // Record notification instead of audit log
+    await recordNotification(ctx, {
+      companyId: user.companyId,
+      userId: user._id,
+      title: "Profile Updated",
+      message: `Your profile details have been successfully updated to ${args.firstName} ${args.surname}.`,
+      type: "info",
+    });
+
+    return true;
+  },
+});
+

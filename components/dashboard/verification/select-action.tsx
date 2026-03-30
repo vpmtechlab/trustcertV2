@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ServiceType, ServiceAction } from "./choose-service";
+import { getIcon } from "@/lib/icon-registry";
 
 interface SelectActionProps {
   service: ServiceType;
@@ -13,12 +14,11 @@ interface SelectActionProps {
 }
 
 export function SelectAction({ service, onSelectAction, onGoBack }: SelectActionProps) {
-  const [selectedActionId, setSelectedActionId] = useState<string>("");
+  const [selectedActionSlug, setSelectedActionSlug] = useState<string>("");
 
-  const IconComponent = service?.icon;
 
   const handleContinue = () => {
-    const action = service.actions.find((a) => a.id === selectedActionId);
+    const action = service.actions.find((a) => a.slug === selectedActionSlug);
     if (action) {
       onSelectAction(action);
     }
@@ -33,23 +33,21 @@ export function SelectAction({ service, onSelectAction, onGoBack }: SelectAction
 
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center gap-4 mb-6">
-          {IconComponent && (
-            <div className={`p-3 rounded-xl ${service?.color}`}>
-              <IconComponent size={24} />
-            </div>
-          )}
+          <div className={`p-3 rounded-xl ${service?.color}`}>
+            {React.createElement(getIcon(service.icon), { size: 24 })}
+          </div>
           <span className="font-medium text-gray-800">{service?.name}</span>
         </div>
 
         <RadioGroup
-          value={selectedActionId}
-          onValueChange={(val) => setSelectedActionId(val || "")}
+          value={selectedActionSlug}
+          onValueChange={(val) => setSelectedActionSlug(val || "")}
           className="space-y-3 pl-4 border-l-2 border-gray-100"
         >
           {service?.actions.map((action) => (
-            <div key={action.id} className="flex items-center space-x-2">
-              <RadioGroupItem value={action.id} id={action.id} />
-              <Label htmlFor={action.id} className="flex items-center gap-2 font-medium cursor-pointer">
+            <div key={action._id} className="flex items-center space-x-2">
+              <RadioGroupItem value={action.slug} id={action._id} />
+              <Label htmlFor={action._id} className="flex items-center gap-2 font-medium cursor-pointer">
                 {action.label}
                 {action.enabled && <span className="text-xs text-primary">●</span>}
               </Label>
@@ -62,7 +60,12 @@ export function SelectAction({ service, onSelectAction, onGoBack }: SelectAction
         <Button onClick={onGoBack} variant="outline">
           Go Back
         </Button>
-        <Button onClick={handleContinue} disabled={!selectedActionId} variant="default" className="bg-primary hover:bg-[#146c11] text-white">
+        <Button
+          onClick={handleContinue}
+          disabled={!selectedActionSlug}
+          variant="default"
+          className="bg-primary hover:bg-[#146c11] text-white"
+        >
           Continue
         </Button>
       </div>

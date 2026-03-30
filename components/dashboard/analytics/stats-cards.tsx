@@ -1,63 +1,58 @@
-import React from "react";
+"use client";
+
+import React, { useContext } from "react";
 import { TrendingUp, TrendingDown, CheckCircle, Clock, Users, Activity } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { AppContext } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
 
 export function StatsCards() {
+  const { member } = useContext(AppContext);
+  const statsOverview = useQuery(api.analytics.getStatsOverview, 
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
+  );
+
   const stats = [
     {
       label: "Total Verifications",
-      value: "15,847",
-      change: "+12.5%",
-      trend: "up" as const,
+      value: statsOverview?.totalVerifications.value ?? "...",
+      change: statsOverview?.totalVerifications.change ?? "",
+      trend: statsOverview?.totalVerifications.trend ?? "up",
       icon: Activity,
       color: "blue" as const,
     },
     {
       label: "Success Rate",
-      value: "94.2%",
-      change: "+2.1%",
-      trend: "up" as const,
+      value: statsOverview?.successRate.value ?? "...",
+      change: statsOverview?.successRate.change ?? "",
+      trend: statsOverview?.successRate.trend ?? "up",
       icon: CheckCircle,
       color: "green" as const,
     },
     {
       label: "Avg. Processing Time",
-      value: "1.8s",
-      change: "-0.3s",
-      trend: "up" as const,
+      value: statsOverview?.avgProcessingTime.value ?? "...",
+      change: statsOverview?.avgProcessingTime.change ?? "",
+      trend: statsOverview?.avgProcessingTime.trend ?? "up",
       icon: Clock,
       color: "purple" as const,
     },
     {
       label: "Active Users",
-      value: "342",
-      change: "+28",
-      trend: "up" as const,
+      value: statsOverview?.activeUsers.value ?? "...",
+      change: statsOverview?.activeUsers.change ?? "",
+      trend: statsOverview?.activeUsers.trend ?? "up",
       icon: Users,
       color: "orange" as const,
     },
   ];
 
   const colorClasses = {
-    blue: {
-      bg: "bg-blue-50",
-      icon: "text-blue-600",
-      accent: "bg-blue-500",
-    },
-    green: {
-      bg: "bg-green-50",
-      icon: "text-green-600",
-      accent: "bg-green-500",
-    },
-    purple: {
-      bg: "bg-purple-50",
-      icon: "text-purple-600",
-      accent: "bg-purple-500",
-    },
-    orange: {
-      bg: "bg-orange-50",
-      icon: "text-orange-600",
-      accent: "bg-orange-500",
-    },
+    blue: { bg: "bg-blue-50", icon: "text-blue-600", accent: "bg-blue-500" },
+    green: { bg: "bg-green-50", icon: "text-green-600", accent: "bg-green-500" },
+    purple: { bg: "bg-purple-50", icon: "text-purple-600", accent: "bg-purple-500" },
+    orange: { bg: "bg-orange-50", icon: "text-orange-600", accent: "bg-orange-500" },
   };
 
   return (
@@ -81,38 +76,30 @@ export function StatsCards() {
 
                 {/* Change indicator */}
                 <div className="flex items-center gap-1 mt-2">
-                  {stat.trend === "up" ? (
-                    <TrendingUp size={14} className="text-green-500" />
-                  ) : (
-                    <TrendingDown size={14} className="text-red-500" />
+                  {stat.value !== "..." && (
+                    <>
+                      {stat.trend === "up" ? (
+                        <TrendingUp size={14} className="text-green-500" />
+                      ) : (
+                        <TrendingDown size={14} className="text-red-500" />
+                      )}
+                      <span className={`text-xs font-medium ${stat.trend === "up" ? "text-green-600" : "text-red-600"}`}>
+                        {stat.change}
+                      </span>
+                      <span className="text-xs text-gray-400">vs last period</span>
+                    </>
                   )}
-                  <span
-                    className={`text-xs font-medium ${
-                      stat.trend === "up" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {stat.change}
-                  </span>
-                  <span className="text-xs text-gray-400">vs last month</span>
                 </div>
               </div>
 
-              {/* Icon */}
               <div className={`p-3 rounded-xl ${colors.bg}`}>
                 <Icon size={22} className={colors.icon} />
               </div>
             </div>
 
-            {/* Mini sparkline (decorative) */}
             <div className="absolute bottom-0 right-0 opacity-10 group-hover:opacity-20 transition-opacity">
               <svg width="80" height="40" viewBox="0 0 80 40">
-                <path
-                  d="M0 35 Q20 20, 40 25 T80 10"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  fill="none"
-                  className={colors.icon}
-                />
+                <path d="M0 35 Q20 20, 40 25 T80 10" stroke="currentColor" strokeWidth="2" fill="none" className={colors.icon} />
               </svg>
             </div>
           </div>
@@ -121,3 +108,4 @@ export function StatsCards() {
     </div>
   );
 }
+

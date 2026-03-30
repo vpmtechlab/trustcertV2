@@ -2,6 +2,9 @@
 
 import React, { createContext, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useDevice } from "@/hooks/use-device";
 import TopUpModal from "@/components/modals/topup-modal";
 import InviteUserModal from "@/components/modals/invite-user-modal";
@@ -18,6 +21,7 @@ export interface Member {
   last_name?: string;
   email?: string;
   role?: string;
+  companyId?: string;
   profile_image_url?: string;
   [key: string]: unknown;
 }
@@ -40,8 +44,7 @@ export interface AppContextType {
   setShowTopUp: React.Dispatch<React.SetStateAction<boolean>>;
   showInviteModal: boolean;
   setShowInviteModal: React.Dispatch<React.SetStateAction<boolean>>;
-  viewMode: "client" | "admin";
-  setViewMode: React.Dispatch<React.SetStateAction<"client" | "admin">>;
+  viewMode: "dashboard" | "admin";
 }
 
 export const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -60,25 +63,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([]);
   
-  const [viewMode, setViewMode] = useState<"client" | "admin">(
-    pathname?.startsWith("/admin") ? "admin" : "client"
-  );
-  const [prevPathname, setPrevPathname] = useState(pathname);
+  const viewMode = pathname?.startsWith("/admin") ? "admin" : "dashboard";
 
-  if (pathname !== prevPathname) {
-    setPrevPathname(pathname);
-    if (pathname?.startsWith("/admin")) {
-      setViewMode("admin");
-    } else if (pathname?.startsWith("/dashboard")) {
-      setViewMode("client");
-    }
-  }
+  const persistedUserId = typeof window !== "undefined" ? localStorage.getItem("userId") : null;
+  const hydratedUser = useQuery(
+    api.users.getUserById,
+    persistedUserId ? { userId: persistedUserId as Id<"users"> } : "skip"
+  );
+  
+  // Use either the manually set member (from login) or the hydrated user (from persistence)
+  const currentMember = member || (hydratedUser as Member | null);
 
   return (
     <AppContext.Provider
       value={{
         device,
-        member,
+        member: currentMember,
         setMember,
         token,
         setToken,
@@ -95,7 +95,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         showInviteModal,
         setShowInviteModal,
         viewMode,
-        setViewMode,
       }}
     >
       {children}

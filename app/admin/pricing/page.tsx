@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
+import AddPriceModal from "@/components/modals/add-price-modal";
+import { Plus } from "lucide-react";
 
 export default function SuperAdminPricingPage() {
   const prices = useQuery(api.pricing.getPrices);
@@ -16,6 +18,7 @@ export default function SuperAdminPricingPage() {
   const [editingId, setEditingId] = useState<Id<"pricing"> | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Group prices by category
   const groupedPrices = prices?.reduce((acc, curr) => {
@@ -73,7 +76,25 @@ export default function SuperAdminPricingPage() {
           <h1 className="text-2xl font-bold text-gray-900">Verification Pricing</h1>
           <p className="text-gray-500 text-sm">Configure the price per successful check for each verification type.</p>
         </div>
+        <Button className="gap-2" onClick={() => setIsAddModalOpen(true)}>
+          <Plus className="w-4 h-4" /> Add Service
+        </Button>
       </div>
+
+      {(!prices || prices.length === 0) && (
+        <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-12 text-center">
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Plus className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">No Services Found</h3>
+          <p className="text-gray-500 mt-1 max-w-sm mx-auto">
+            Get started by adding your first verification service and its pricing.
+          </p>
+          <Button variant="outline" className="mt-6" onClick={() => setIsAddModalOpen(true)}>
+            Add Your First Service
+          </Button>
+        </div>
+      )}
 
       {Object.entries(groupedPrices || {}).map(([category, items]) => (
         <div key={category} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
@@ -127,6 +148,11 @@ export default function SuperAdminPricingPage() {
           </div>
         </div>
       ))}
+
+      <AddPriceModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
     </div>
   );
 }

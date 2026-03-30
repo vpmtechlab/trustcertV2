@@ -1,50 +1,77 @@
-"use client";
+import { TrendingUp, CheckCircle, FileText, AlertTriangle } from "lucide-react";
 
-import React from "react";
-import { TrendingUp, CheckCircle, FileText, Clock } from "lucide-react";
+interface MetricsGridProps {
+  analytics: {
+    metrics: {
+      complianceScore: number;
+      totalJobs: number;
+      pendingReviews: number;
+      failureRate: number;
+    };
+  } | undefined;
+}
 
-export function MetricsGrid() {
+export function MetricsGrid({ analytics }: MetricsGridProps) {
+  const isLoading = analytics === undefined;
+  
+  const stats = [
+    {
+      label: "Compliance Score",
+      value: isLoading || !analytics ? "--" : `${analytics.metrics.complianceScore}%`,
+      trend: "+4% from last period",
+      icon: <CheckCircle className="text-green-500" size={20} />,
+      color: "text-green-600",
+      bgColor: "bg-green-50",
+      isScore: true
+    },
+    {
+      label: "Total Verifications",
+      value: isLoading || !analytics ? "--" : analytics.metrics.totalJobs.toLocaleString(),
+      trend: "Verification Volume",
+      icon: <FileText className="text-blue-600" size={20} />,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50"
+    },
+    {
+      label: "Failure Rate",
+      value: isLoading || !analytics ? "--" : `${analytics.metrics.failureRate}%`,
+      trend: analytics?.metrics && analytics.metrics.failureRate > 15 ? "Requires Attention" : "Within Range",
+      icon: analytics?.metrics && analytics.metrics.failureRate > 15 ? <AlertTriangle className="text-red-500" size={20} /> : <TrendingUp className="text-amber-500" size={20} />,
+      color: analytics?.metrics && analytics.metrics.failureRate > 15 ? "text-red-600" : "text-amber-600",
+      bgColor: analytics?.metrics && analytics.metrics.failureRate > 15 ? "bg-red-50" : "bg-amber-50"
+    }
+  ];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Compliance Score */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Compliance Score</p>
-          <h3 className="text-3xl font-bold text-gray-900">92%</h3>
-          <p className="text-xs text-green-600 flex items-center gap-1 mt-2">
-            <TrendingUp size={14} /> +4% from last month
-          </p>
+      {stats.map((stat, i) => (
+        <div 
+          key={i} 
+          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex items-center justify-between group"
+        >
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{stat.label}</p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-4xl font-black text-gray-900 tracking-tighter tabular-nums">{stat.value}</h3>
+            </div>
+            <p className={`text-[10px] font-bold ${stat.color} flex items-center gap-1.5 uppercase tracking-wider`}>
+               {stat.trend}
+            </p>
+          </div>
+          
+          {stat.isScore ? (
+            <div className={`w-20 h-20 rounded-full border-8 border-green-500 border-t-gray-100 flex items-center justify-center rotate-45 group-hover:rotate-0 transition-transform duration-700`}>
+              <div className="-rotate-45 group-hover:rotate-0 transition-transform duration-700">
+                 {stat.icon}
+              </div>
+            </div>
+          ) : (
+            <div className={`w-14 h-14 ${stat.bgColor} ${stat.color} rounded-2xl flex items-center justify-center shadow-inner group-hover:rotate-12 transition-transform`}>
+              {stat.icon}
+            </div>
+          )}
         </div>
-        <div className="w-16 h-16 rounded-full border-4 border-green-500 border-t-green-200 flex items-center justify-center">
-          <CheckCircle size={24} className="text-green-500" />
-        </div>
-      </div>
-
-      {/* Total Verifications */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Total Verifications</p>
-          <h3 className="text-3xl font-bold text-gray-900">1,248</h3>
-          <p className="text-xs text-gray-500 mt-2">Running total</p>
-        </div>
-        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-          <FileText size={24} />
-        </div>
-      </div>
-
-      {/* Pending Reviews */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">Pending Reviews</p>
-          <h3 className="text-3xl font-bold text-gray-900">14</h3>
-          <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
-            Requires attention
-          </p>
-        </div>
-        <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center">
-          <Clock size={24} />
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

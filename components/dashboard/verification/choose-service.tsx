@@ -1,104 +1,68 @@
 "use client";
 
 import React from "react";
-import {
-  UserCheck,
-  Building2,
-  UserPlus,
-  Shield,
-  Fingerprint,
-  MapPin,
-  ChevronRight,
-  Check,
-} from "lucide-react";
+import { ChevronRight, Check } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { getIcon } from "@/lib/icon-registry";
 
-export type ServiceAction = { id: string; label: string; enabled: boolean };
-export type ServiceType = {
-  id: string;
-  name: string;
-  icon: React.ElementType;
-  color: string;
-  actions: ServiceAction[];
+// ── Types ─────────────────────────────────────────────────────────────────────
+// Derived from the Convex `services.list` query shape
+
+export type ServiceAction = {
+  _id: string;
+  label: string;
+  slug: string;
+  enabled: boolean;
 };
 
-export const SERVICES: ServiceType[] = [
-  {
-    id: "kyc",
-    name: "KYC Services",
-    icon: UserCheck,
-    color: "bg-blue-100 text-blue-600",
-    actions: [
-      { id: "enhanced_kyc", label: "Enhanced KYC", enabled: true },
-      { id: "biometric_kyc", label: "Biometric KYC", enabled: true },
-      {
-        id: "document_verification",
-        label: "Document Verification",
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: "kyb",
-    name: "KYB Services",
-    icon: Building2,
-    color: "bg-indigo-100 text-indigo-600",
-    actions: [
-      {
-        id: "business_verification",
-        label: "Business Verification",
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: "user_registration",
-    name: "User Registration",
-    icon: UserPlus,
-    color: "bg-green-100 text-green-600",
-    actions: [
-      {
-        id: "smart_selfie_registration",
-        label: "SmartSelfie™ Authentication (user registration)",
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: "aml",
-    name: "AML",
-    icon: Shield,
-    color: "bg-purple-100 text-purple-600",
-    actions: [{ id: "aml_check", label: "AML Check", enabled: true }],
-  },
-  {
-    id: "biometric_2fa",
-    name: "Biometric 2nd Factor Authentication",
-    icon: Fingerprint,
-    color: "bg-orange-100 text-orange-600",
-    actions: [
-      {
-        id: "smart_selfie_auth",
-        label: "SmartSelfie™ Authentication (authentication)",
-        enabled: true,
-      },
-    ],
-  },
-  {
-    id: "address_verification",
-    name: "Address Verification",
-    icon: MapPin,
-    color: "bg-teal-100 text-teal-600",
-    actions: [
-      { id: "address_verify", label: "Address Verification", enabled: true },
-    ],
-  },
-];
+export type ServiceCheckType = {
+  _id: string;
+  label: string;
+  slug: string;
+};
+
+export type ServiceCategory = {
+  _id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  color: string;
+  actions: ServiceAction[];
+  checkTypes: ServiceCheckType[];
+};
+
+// Legacy aliases — keep these so SelectAction and FillDetails don't break
+export type ServiceType = ServiceCategory;
+
+// ── Component ──────────────────────────────────────────────────────────────────
 
 interface ChooseServiceProps {
   onSelectService: (service: ServiceType) => void;
 }
 
 export function ChooseService({ onSelectService }: ChooseServiceProps) {
+  const services = useQuery(api.services.list);
+
+  if (services === undefined) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (services.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <p className="text-sm">No services configured yet.</p>
+        <p className="text-xs mt-1">Run the seed mutation from the Convex dashboard.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -109,11 +73,11 @@ export function ChooseService({ onSelectService }: ChooseServiceProps) {
       </div>
 
       <div className="space-y-3">
-        {SERVICES.map((service) => {
-          const IconComponent = service.icon;
+        {services.map((service) => {
+          const IconComponent = getIcon(service.icon);
           return (
             <div
-              key={service.id}
+              key={service._id}
               onClick={() => onSelectService(service)}
               className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-primary hover:shadow-sm transition-all group"
             >
@@ -121,16 +85,14 @@ export function ChooseService({ onSelectService }: ChooseServiceProps) {
                 <div className={`p-3 rounded-xl ${service.color}`}>
                   <IconComponent size={24} />
                 </div>
-                <span className="font-medium text-gray-800">
-                  {service.name}
-                </span>
+                <span className="font-medium text-gray-800">{service.name}</span>
               </div>
 
               <div className="flex items-center gap-4">
                 <div className="hidden md:flex flex-wrap gap-2 max-w-md">
                   {service.actions.map((action) => (
                     <span
-                      key={action.id}
+                      key={action._id}
                       className="flex items-center gap-1 text-xs text-gray-500"
                     >
                       <Check size={12} className="text-primary" />

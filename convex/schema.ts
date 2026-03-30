@@ -72,4 +72,58 @@ export default defineSchema({
     price: v.number(), // e.g. 15.00
     updatedAt: v.number(),
   }).index("by_service", ["serviceId"]),
+
+  // ── Service Management ──────────────────────────────────────────────────────
+
+  // Top-level service categories (e.g. "KYC Services", "AML")
+  serviceCategories: defineTable({
+    name: v.string(),        // "KYC Services"
+    slug: v.string(),        // "kyc" — stable ID for business logic
+    description: v.optional(v.string()),
+    icon: v.string(),        // lucide icon name, e.g. "UserCheck"
+    color: v.string(),       // tailwind classes, e.g. "bg-blue-100 text-blue-600"
+    order: v.optional(v.number()), // for display ordering
+    isActive: v.boolean(),
+  }).index("by_slug", ["slug"]),
+
+  // Actions within a category (step 2 in the wizard, e.g. "Enhanced KYC")
+  serviceActions: defineTable({
+    categoryId: v.id("serviceCategories"),
+    label: v.string(),       // "Enhanced KYC"
+    slug: v.string(),        // "enhanced_kyc"
+    enabled: v.boolean(),
+    order: v.optional(v.number()),
+  }).index("by_category", ["categoryId"]),
+
+  // Check types within a category (step 3 dropdown, e.g. "National ID", "Passport")
+  serviceCheckTypes: defineTable({
+    categoryId: v.id("serviceCategories"),
+    label: v.string(),       // "NATIONAL ID"
+    slug: v.string(),        // "national_id" — matches pricing.serviceId
+    order: v.optional(v.number()),
+  }).index("by_category", ["categoryId"]),
+
+  auditLogs: defineTable({
+    companyId: v.optional(v.id("companies")),
+    userId: v.optional(v.id("users")),
+    action: v.string(),       // e.g. "VERIFICATION_CREATED", "FUNDS_ADDED"
+    entityId: v.optional(v.string()), // ID of the affected record
+    entityType: v.optional(v.string()), // e.g. "job", "balance", "user"
+    details: v.string(),      // Human friendly summary
+    metadata: v.optional(v.any()), // JSON payload for diffs or details
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"])
+    .index("by_user", ["userId"])
+    .index("by_action", ["action"]),
+
+  notifications: defineTable({
+    companyId: v.id("companies"),
+    userId: v.optional(v.id("users")), // The recipient or related user
+    title: v.string(),
+    message: v.string(),
+    type: v.string(), // 'info', 'success', 'warning', 'error'
+    isRead: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"]),
 });
+

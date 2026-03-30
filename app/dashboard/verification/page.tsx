@@ -30,7 +30,7 @@ export default function VerificationPage() {
     setCurrentStep(3);
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: Record<string, unknown>) => {
     // Navigate to the newly created job
     if (data.jobId) {
       router.push(`/dashboard/jobs/view/${data.jobId}`);

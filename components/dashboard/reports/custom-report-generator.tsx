@@ -62,10 +62,10 @@ export function CustomReportGenerator() {
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 w-full">
           <Label htmlFor="report-type">Report Type</Label>
           <Select value={reportType} onValueChange={(val) => setReportType(val || "")}>
-            <SelectTrigger id="report-type">
+            <SelectTrigger id="report-type" className="w-full">
               <SelectValue placeholder="Select report type" />
             </SelectTrigger>
             <SelectContent>
@@ -80,7 +80,7 @@ export function CustomReportGenerator() {
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select value={status} onValueChange={(val) => setStatus(val || "")}>
-            <SelectTrigger id="status">
+            <SelectTrigger id="status" className="w-full">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent>

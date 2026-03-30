@@ -3,9 +3,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { JobStatsCards } from "@/components/dashboard/jobs/job-stats-cards";
-import { mockData } from "@/components/dashboard/jobs/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,27 +15,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function JobListPage() {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
-  const [docs] = useState(mockData);
-  const [filteredData, setFilteredData] = useState(mockData);
+  const [searchTerm, setSearchTerm] = useState("");
   const itemsPerPage = 10;
+
+  // 1. Get the company context (VPMTechLab by default for POC)
+  const company = useQuery(api.companies.getDefaultCompany);
+
+  // 2. Fetch real data from Convex
+  const jobs = useQuery(api.verifications.getVerificationsByCompany,
+    company?._id ? { companyId: company._id } : "skip"
+  );
+
+  const stats = useQuery(api.verifications.getJobStats,
+    company?._id ? { companyId: company._id } : "skip"
+  );
 
   const handleRowClick = (jobId: string) => {
     router.push(`/dashboard/jobs/view/${jobId}`);
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const searchTerm = e.target.value;
-    const filtered = docs.filter(
-      (row) =>
-        row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.jobId.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredData(filtered);
-    setCurrentPage(1); // Reset to first page on search
   };
 
   const handleExportCSV = () => {
@@ -44,10 +45,35 @@ export default function JobListPage() {
   };
 
   const getResultBadgeColor = (result: string) => {
-    if (result === "Approved") return "bg-green-100 text-green-700";
-    if (result === "Not found on list") return "bg-yellow-100 text-yellow-700";
+    if (result === "approved") return "bg-green-100 text-green-700";
+    if (result === "not_found_on_list") return "bg-gray-100 text-gray-700";
+    if (result === "pending") return "bg-amber-100 text-amber-700";
     return "bg-red-100 text-red-700";
   };
+
+  const formatDate = (ts: number) => {
+    return new Date(ts).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+    });
+  };
+
+  const formatTime = (ts: number) => {
+    return new Date(ts).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  // Filter logic over real database results
+  const filteredData = (jobs ?? []).filter((row) => {
+    return (
+      (row.serviceName as string).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row._id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentData = filteredData.slice(
@@ -55,12 +81,21 @@ export default function JobListPage() {
     currentPage * itemsPerPage
   );
 
+  if (jobs === undefined || company === undefined) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-gray-500 text-sm font-medium">Loading job list...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 p-5">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Job List</h1>
-          <p className="text-gray-500 mt-1">Keep track of jobs and their KYC results.</p>
+          <p className="text-gray-500 mt-1">Keep track of real-time verification jobs and AI-generated results.</p>
         </div>
         <Button
           onClick={handleExportCSV}
@@ -71,7 +106,7 @@ export default function JobListPage() {
         </Button>
       </div>
 
-      <JobStatsCards />
+      <JobStatsCards stats={stats} />
 
       <div className="bg-white border text-sm border-gray-200 rounded-xl overflow-hidden shadow-sm">
         {/* Table Toolbar */}
@@ -79,9 +114,13 @@ export default function JobListPage() {
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search by Name or Job ID"
+              placeholder="Search by Job ID"
               className="pl-9 bg-gray-50 border-gray-200"
-              onChange={handleSearch}
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
         </div>
@@ -92,13 +131,11 @@ export default function JobListPage() {
             <TableHeader className="bg-gray-50">
               <TableRow>
                 <TableHead>Job ID</TableHead>
-                <TableHead>Name</TableHead>
+                <TableHead>Service</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Job Time</TableHead>
+                <TableHead>Time</TableHead>
                 <TableHead>Product</TableHead>
-                <TableHead>ID Type</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead>Result</TableHead>
                 <TableHead>Message</TableHead>
@@ -106,46 +143,47 @@ export default function JobListPage() {
             </TableHeader>
             <TableBody>
               {currentData.length > 0 ? (
-                currentData.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    onClick={() => handleRowClick(row.jobId)}
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                  >
-                    <TableCell className="font-medium">{row.jobId}</TableCell>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.source}</TableCell>
-                    <TableCell>{row.date}</TableCell>
-                    <TableCell>{row.timestamp}</TableCell>
-                    <TableCell>{row.jobTime}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-700">{row.product}</span>
-                        {row.productSub && (
-                          <span className="text-[10px] text-gray-400">{row.productSub}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{row.idType}</TableCell>
-                    <TableCell>{row.country}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${getResultBadgeColor(
-                          row.result
-                        )}`}
-                      >
-                        {row.result}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-[150px] truncate" title={row.message}>
-                      {row.message}
-                    </TableCell>
-                  </TableRow>
-                ))
+                currentData.map((row) => {
+                  const entity = (row.entityData as Record<string, unknown>) || {};
+
+                  return (
+                    <TableRow
+                      key={row._id}
+                      onClick={() => handleRowClick(row._id)}
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <TableCell className="font-medium text-xs font-mono">{row._id.substring(0, 10)}...</TableCell>
+                      <TableCell className="font-medium">{row.serviceName}</TableCell>
+                      <TableCell>
+                        <span className="capitalize">{row.source?.replace("_", " ") ?? "web"}</span>
+                      </TableCell>
+                      <TableCell>{formatDate(row.createdAt)}</TableCell>
+                      <TableCell className="text-gray-400">{formatTime(row.createdAt)}</TableCell>
+                      <TableCell>
+                        <span className="font-medium text-gray-700 uppercase text-[11px] bg-gray-100 px-2 py-0.5 rounded">
+                          {row.serviceType?.replace("_", " ")}
+                        </span>
+                      </TableCell>
+                      <TableCell>{(entity.country as string) ?? "KE"}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${getResultBadgeColor(
+                            row.resultStatus
+                          )}`}
+                        >
+                          {row.resultStatus ?? "Pending"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate italic text-gray-500" title={row.message}>
+                        {row.message}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} className="h-24 text-center text-gray-500">
-                    No results found.
+                  <TableCell colSpan={9} className="h-32 text-center text-gray-500">
+                    {searchTerm ? "No results found matching your search." : "No verification jobs found."}
                   </TableCell>
                 </TableRow>
               )}

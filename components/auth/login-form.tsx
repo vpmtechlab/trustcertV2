@@ -18,8 +18,7 @@ export function LoginForm() {
 	const login = useMutation(api.users.login);
 	const { setMember } = useApp();
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
+	const handleSubmit = async () => {
 		if (!email || !password) {
 			toast.warning("Email and Password are required!");
 			return;
@@ -28,20 +27,18 @@ export function LoginForm() {
 		setIsLoading(true);
 		try {
 			const result = await login({ email, password });
-			
+
 			// Simple local auth state persistence for MVP
-			localStorage.setItem('userId', result.userId);
-			localStorage.setItem('companyId', result.companyId);
+			localStorage.setItem("userId", result.userId);
+			localStorage.setItem("companyId", result.companyId);
 			setMember(result);
 
-      console.log(result);
-
 			toast.success("Login Successful!");
-			
+
 			// Clear form state
 			setEmail("");
 			setPassword("");
-			
+
 			// Role-based/Domain-based routing
 			if (email.includes("@vpmtechlab.com")) {
 				router.push("/admin");
@@ -49,7 +46,8 @@ export function LoginForm() {
 				router.push("/dashboard");
 			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Invalid email or password.";
+			const errorMessage =
+				error instanceof Error ? error.message : "Invalid email or password.";
 			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
@@ -86,7 +84,13 @@ export function LoginForm() {
 				</div>
 			</div>
 
-			<Button onClick={handleSubmit} variant="secondary" size="lg" disabled={isLoading} className="w-full mt-6  transition-colors text-white font-semibold shadow-lg text-sm gap-2">
+			<Button
+				onClick={handleSubmit}
+				variant="secondary"
+				size="lg"
+				disabled={isLoading}
+				className="w-full mt-6 py-3 transition-colors text-white font-semibold shadow-lg text-sm gap-2"
+			>
 				{isLoading ? "Signing In..." : "Sign In"}
 			</Button>
 		</div>
