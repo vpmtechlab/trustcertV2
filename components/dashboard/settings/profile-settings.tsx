@@ -1,25 +1,80 @@
 "use client";
 
-import React, { useState } from "react";
-import { Camera, BadgeCheck } from "lucide-react";
+import React, { useState, useContext, useEffect } from "react";
+import { Camera, BadgeCheck, Loader2 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AppContext } from "@/components/providers/app-provider";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
 
 export function ProfileSettings() {
+  const { member, setMember } = useContext(AppContext);
+  const updateProfile = useMutation(api.users.updateUserProfile);
+  
+  const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@vpmtech.com",
-    phone: "+254 700 123 456",
-    role: "Senior Compliance Officer",
-    bio: "Experienced compliance professional with over 5 years of ensuring regulatory adherence.",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    role: "",
+    bio: "",
   });
 
-  const [avatar] = useState("https://i.pravatar.cc/150?u=a042581f4e29026024d");
+  // Sync state with member context
+  useEffect(() => {
+    if (member) {
+      setProfileData({
+        firstName: member.first_name || "",
+        lastName: member.last_name || "",
+        email: member.email || "",
+        phone: (member.phone as string) || "",
+        role: member.role || "Administrator",
+        bio: (member.bio as string) || "",
+      });
+    }
+  }, [member]);
 
   const handleChange = (field: string, value: string) => {
     setProfileData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!member?.id) return;
+    setLoading(true);
+    try {
+      await updateProfile({
+        userId: member.id as Id<"users">,
+        firstName: profileData.firstName,
+        surname: profileData.lastName,
+        role: profileData.role,
+        phone: profileData.phone,
+        bio: profileData.bio,
+        performedBy: member.id as Id<"users">,
+      });
+      
+      // Update local context
+      setMember({
+        ...member,
+        first_name: profileData.firstName,
+        last_name: profileData.lastName,
+        role: profileData.role,
+        phone: profileData.phone,
+        bio: profileData.bio,
+      });
+
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      toast.error("Failed to update profile.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,30 +87,13 @@ export function ProfileSettings() {
 
       {/* Avatar Section */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-        <div className="relative group w-20 h-20 shrink-0">
-          <img
-            src={avatar}
-            alt="Profile"
-            className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm"
-          />
-          <button className="absolute bottom-0 right-0 p-1.5 bg-secondary text-white rounded-full shadow-md hover:bg-gray-800 transition-colors">
-            <Camera size={14} />
-          </button>
-        </div>
+      
         <div className="flex-1">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2">
             {profileData.firstName} {profileData.lastName}
             <BadgeCheck size={16} className="text-blue-500" />
           </h3>
           <p className="text-sm text-gray-500">{profileData.role}</p>
-          <div className="flex items-center gap-2 mt-3">
-            <Button variant="outline" size="sm" className="h-8 text-xs font-medium">
-              Change Photo
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50">
-              Remove
-            </Button>
-          </div>
         </div>
       </div>
 
@@ -84,7 +122,6 @@ export function ProfileSettings() {
             type="email"
             value={profileData.email}
             disabled
-            onChange={(e) => handleChange("email", e.target.value)}
           />
           <p className="text-xs text-gray-500">Contact admin to change your email address.</p>
         </div>
@@ -119,7 +156,12 @@ export function ProfileSettings() {
 
       {/* Save Button */}
       <div className="flex justify-end pt-4 border-t border-gray-100">
-        <Button className="bg-secondary hover:bg-gray-800 text-white w-full sm:w-auto">
+        <Button 
+          onClick={handleSave} 
+          disabled={loading}
+          className="bg-secondary hover:bg-gray-800 text-white w-full sm:w-auto"
+        >
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Changes
         </Button>
       </div>

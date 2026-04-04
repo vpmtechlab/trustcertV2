@@ -1,38 +1,49 @@
 "use client";
 
 import React from "react";
-import { Briefcase, Activity, CheckCircle, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Briefcase, Activity, CheckCircle, AlertTriangle } from "lucide-react";
 
-export function JobStatsCards() {
-  const stats = [
+export interface JobStats {
+  total: number;
+  running: number;
+  completed: number;
+  failed: number;
+}
+
+interface JobStatsCardsProps {
+  stats?: JobStats;
+}
+
+export function JobStatsCards({ stats }: JobStatsCardsProps) {
+  const displayStats = [
     {
       label: "Total Jobs",
-      value: "8,942",
-      change: "+340",
+      value: stats?.total?.toLocaleString() ?? "0",
+      change: "+0",
       trend: "up" as const,
       icon: Briefcase,
       color: "blue" as const,
     },
     {
       label: "Running",
-      value: "124",
-      change: "+12",
+      value: stats?.running?.toLocaleString() ?? "0",
+      change: "+0",
       trend: "up" as const,
       icon: Activity,
       color: "orange" as const,
     },
     {
       label: "Completed",
-      value: "8,650",
-      change: "+320",
+      value: stats?.completed?.toLocaleString() ?? "0",
+      change: "+0",
       trend: "up" as const,
       icon: CheckCircle,
       color: "green" as const,
     },
     {
       label: "Failed",
-      value: "168",
-      change: "+8",
+      value: stats?.failed?.toLocaleString() ?? "0",
+      change: "+0",
       trend: "down" as const,
       icon: AlertTriangle,
       color: "red" as const,
@@ -64,7 +75,7 @@ export function JobStatsCards() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => {
+      {displayStats.map((stat, index) => {
         const Icon = stat.icon;
         const colors = colorClasses[stat.color];
 

@@ -1,24 +1,15 @@
 "use client";
 
-import React, { useContext, useState } from "react";
+import React, { useContext } from "react";
 import { PlusCircle, UserPlus, FileText, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { AppContext } from "@/components/providers/app-provider";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { AppContext, useApp } from "@/components/providers/app-provider";
 
 export function QuickActions() {
   const router = useRouter();
   const { setShowTopUp } = useContext(AppContext);
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const { setShowInviteModal } = useApp();
 
   const actions = [
     {
@@ -30,7 +21,7 @@ export function QuickActions() {
     {
       label: "Invite Member",
       icon: UserPlus,
-      onClick: () => setInviteModalOpen(true),
+      onClick: () => setShowInviteModal(true),
       variant: "outline" as const,
     },
     {
@@ -67,47 +58,6 @@ export function QuickActions() {
           ))}
         </div>
       </div>
-
-      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Invite Member</DialogTitle>
-            <DialogDescription>
-              Send an invitation to a new team member to join your organization.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="colleague@company.com"
-                className="bg-gray-50"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
-              <select 
-                id="role" 
-                className="flex h-9 w-full rounded-md border border-input bg-gray-50 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="member">Compliance Member</option>
-                <option value="admin">Admin</option>
-                <option value="viewer">Viewer</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setInviteModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button className="bg-primary hover:bg-[#146c11] text-white" onClick={() => setInviteModalOpen(false)}>
-              Send Invitation
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

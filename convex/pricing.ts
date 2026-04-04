@@ -27,3 +27,28 @@ export const updatePrice = mutation({
     });
   },
 });
+
+export const addPrice = mutation({
+  args: {
+    serviceCategory: v.string(),
+    serviceId: v.string(),
+    serviceName: v.string(),
+    price: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // Check if the serviceId already exists
+    const existing = await ctx.db
+      .query("pricing")
+      .withIndex("by_service", (q) => q.eq("serviceId", args.serviceId))
+      .first();
+    
+    if (existing) {
+      throw new Error("Service with this ID already exists.");
+    }
+    
+    await ctx.db.insert("pricing", {
+      ...args,
+      updatedAt: Date.now(),
+    });
+  },
+});

@@ -1,35 +1,46 @@
-import React from "react";
+"use client";
+
+import React, { useContext } from "react";
 import { CheckCircle2, Clock, XCircle, FileCheck } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { AppContext } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
 
 export function StatsGrid() {
+  const { member } = useContext(AppContext);
+  const statsData = useQuery(api.verifications.getJobStats, 
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
+  );
+
   const stats = [
     {
       label: "Total Verifications",
-      value: "1,245",
+      value: statsData?.total?.toLocaleString() ?? "...",
       icon: FileCheck,
       color: "text-blue-500",
       bg: "bg-blue-50",
-      trend: "+12% this month",
+      trend: "All initiated checks",
     },
     {
       label: "Pending Checks",
-      value: "12",
+      value: statsData?.running?.toLocaleString() ?? "...",
       icon: Clock,
       color: "text-orange-500",
       bg: "bg-orange-50",
-      trend: "Requests waiting",
+      trend: "Requests in progress",
     },
     {
       label: "Completed",
-      value: "1,208",
+      value: statsData?.completed?.toLocaleString() ?? "...",
       icon: CheckCircle2,
       color: "text-green-600",
       bg: "bg-green-50",
-      trend: "98% Success rate",
+      trend: "Successful verifications",
     },
     {
       label: "Failed",
-      value: "25",
+      value: statsData?.failed?.toLocaleString() ?? "...",
       icon: XCircle,
       color: "text-red-500",
       bg: "bg-red-50",

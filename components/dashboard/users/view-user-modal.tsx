@@ -1,14 +1,16 @@
 "use client";
 
 import React from "react";
-import { User, Mail, Shield, Calendar, Clock, X } from "lucide-react";
+import {  Mail, Shield, Calendar, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+
+import { User } from "@/types/user";
 
 interface ViewUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: any;
+  user: User | null;
 }
 
 export function ViewUserModal({ isOpen, onClose, user }: ViewUserModalProps) {
@@ -28,12 +30,7 @@ export function ViewUserModal({ isOpen, onClose, user }: ViewUserModalProps) {
         
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 mt-4">
-          <img
-            src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
-            alt={user.name}
-            className="w-16 h-16 rounded-full bg-gray-200 object-cover"
-          />
-          <div>
+            <div>
             <h2 className="text-lg font-bold text-gray-900">{user.name}</h2>
             <p className="text-sm text-gray-500">{user.email}</p>
             <span
@@ -74,7 +71,13 @@ export function ViewUserModal({ isOpen, onClose, user }: ViewUserModalProps) {
             </div>
             <div>
               <p className="text-xs text-gray-500">Member Since</p>
-              <p className="font-medium text-gray-900">{user.createdAt || "Jan 15, 2026"}</p>
+              <p className="font-medium text-gray-900">
+                {user.createdAt ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                }) : "Jan 15, 2026"}
+              </p>
             </div>
           </div>
 

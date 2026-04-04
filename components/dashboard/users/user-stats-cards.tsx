@@ -2,37 +2,57 @@
 
 import React from "react";
 import { Users, UserCheck, UserPlus, Shield } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useApp } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function UserStatsCards() {
+  const { member } = useApp();
+  const statsData = useQuery(api.users.getUserStats, member?.companyId ? { 
+    companyId: member.companyId as Id<"companies"> 
+  } : "skip");
+
+  if (statsData === undefined) {
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+            ))}
+        </div>
+    );
+  }
+
   const stats = [
     {
       label: "Total Users",
-      value: "2,543",
-      change: "+125",
+      value: statsData.total,
+      change: "+1 new",
       trend: "up" as const,
       icon: Users,
       color: "blue" as const,
     },
     {
       label: "Active Users",
-      value: "2,100",
-      change: "+89",
-      trend: "up" as const,
+      value: statsData.active,
+      change: "Stable",
+      trend: "neutral" as const,
       icon: UserCheck,
       color: "green" as const,
     },
     {
       label: "Pending Invites",
-      value: "45",
-      change: "-5",
-      trend: "down" as const,
+      value: statsData.invited,
+      change: "Awaiting",
+      trend: "neutral" as const,
       icon: UserPlus,
       color: "orange" as const,
     },
     {
       label: "Admin Users",
-      value: "12",
-      change: "0",
+      value: statsData.admins,
+      change: "Privileged",
       trend: "neutral" as const,
       icon: Shield,
       color: "purple" as const,
@@ -79,7 +99,10 @@ export function UserStatsCards() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                <div className="flex items-baseline gap-2">
+                    <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                    <span className="text-[10px] text-gray-400 font-medium">{stat.change}</span>
+                </div>
               </div>
 
               {/* Icon */}

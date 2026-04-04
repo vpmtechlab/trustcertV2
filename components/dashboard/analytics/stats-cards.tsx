@@ -1,63 +1,67 @@
-import React from "react";
-import { TrendingUp, TrendingDown, CheckCircle, Clock, Users, Activity } from "lucide-react";
+"use client";
 
-export function StatsCards() {
-  const stats = [
+import React from "react";
+import { TrendingUp, CheckCircle, Clock, Activity, LucideIcon } from "lucide-react";
+
+interface StatsCardsProps {
+  data: {
+    totalJobs: number;
+    approvedJobs: number;
+    passRate: string;
+    avgTime: string;
+  };
+}
+
+interface StatItem {
+  label: string;
+  value: string | number;
+  change: string;
+  trend: "up" | "down";
+  icon: LucideIcon;
+  color: "blue" | "green" | "purple" | "orange";
+}
+
+export function StatsCards({ data }: StatsCardsProps) {
+  const stats: StatItem[] = [
     {
       label: "Total Verifications",
-      value: "15,847",
+      value: data.totalJobs,
       change: "+12.5%",
-      trend: "up" as const,
+      trend: "up",
       icon: Activity,
-      color: "blue" as const,
+      color: "blue",
     },
     {
       label: "Success Rate",
-      value: "94.2%",
+      value: data.passRate,
       change: "+2.1%",
-      trend: "up" as const,
+      trend: "up",
       icon: CheckCircle,
-      color: "green" as const,
+      color: "green",
     },
     {
       label: "Avg. Processing Time",
-      value: "1.8s",
-      change: "-0.3s",
-      trend: "up" as const,
+      value: data.avgTime,
+      change: "-0.2s",
+      trend: "up", // up meaning improvement here
       icon: Clock,
-      color: "purple" as const,
+      color: "purple",
     },
     {
-      label: "Active Users",
-      value: "342",
-      change: "+28",
-      trend: "up" as const,
-      icon: Users,
-      color: "orange" as const,
+      label: "Approved Requests",
+      value: data.approvedJobs,
+      change: "+5.4%",
+      trend: "up",
+      icon: Activity,
+      color: "orange",
     },
   ];
 
   const colorClasses = {
-    blue: {
-      bg: "bg-blue-50",
-      icon: "text-blue-600",
-      accent: "bg-blue-500",
-    },
-    green: {
-      bg: "bg-green-50",
-      icon: "text-green-600",
-      accent: "bg-green-500",
-    },
-    purple: {
-      bg: "bg-purple-50",
-      icon: "text-purple-600",
-      accent: "bg-purple-500",
-    },
-    orange: {
-      bg: "bg-orange-50",
-      icon: "text-orange-600",
-      accent: "bg-orange-500",
-    },
+    blue: { bg: "bg-blue-50", icon: "text-blue-600", accent: "bg-blue-500" },
+    green: { bg: "bg-green-50", icon: "text-green-600", accent: "bg-green-500" },
+    purple: { bg: "bg-purple-50", icon: "text-purple-600", accent: "bg-purple-500" },
+    orange: { bg: "bg-orange-50", icon: "text-orange-600", accent: "bg-orange-500" },
   };
 
   return (
@@ -81,38 +85,22 @@ export function StatsCards() {
 
                 {/* Change indicator */}
                 <div className="flex items-center gap-1 mt-2">
-                  {stat.trend === "up" ? (
-                    <TrendingUp size={14} className="text-green-500" />
-                  ) : (
-                    <TrendingDown size={14} className="text-red-500" />
-                  )}
-                  <span
-                    className={`text-xs font-medium ${
-                      stat.trend === "up" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
+                  <TrendingUp size={14} className="text-green-500" />
+                  <span className="text-xs font-medium text-green-600">
                     {stat.change}
                   </span>
-                  <span className="text-xs text-gray-400">vs last month</span>
+                  <span className="text-xs text-gray-400">vs last period</span>
                 </div>
               </div>
 
-              {/* Icon */}
               <div className={`p-3 rounded-xl ${colors.bg}`}>
                 <Icon size={22} className={colors.icon} />
               </div>
             </div>
 
-            {/* Mini sparkline (decorative) */}
             <div className="absolute bottom-0 right-0 opacity-10 group-hover:opacity-20 transition-opacity">
               <svg width="80" height="40" viewBox="0 0 80 40">
-                <path
-                  d="M0 35 Q20 20, 40 25 T80 10"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  fill="none"
-                  className={colors.icon}
-                />
+                <path d="M0 35 Q20 20, 40 25 T80 10" stroke="currentColor" strokeWidth="2" fill="none" className={colors.icon} />
               </svg>
             </div>
           </div>

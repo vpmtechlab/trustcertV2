@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   Eye,
   EyeOff,
@@ -8,6 +6,7 @@ import {
   RefreshCw,
   AlertCircle,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,14 +19,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { AppContext } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
 
 export function ApiSettings() {
-  const [apiKey] = useState("api_live_abc123xyz789def456ghi000");
+  const { member } = useContext(AppContext);
+  const apiKeys = useQuery(api.apiKeys.list, 
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
+  );
+  const generateApiKey = useMutation(api.apiKeys.generate);
+
   const [showApiKey, setShowApiKey] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [newKey, setNewKey] = useState<string | null>(null);
+
+  const activeKey = apiKeys?.[0]; // Support multiple if needed, but UI shows one for now
+  const displayKey = newKey || activeKey?.keyHash || "api_live_••••••••••••••••••••••••";
 
   const handleCopyApiKey = () => {
-    navigator.clipboard.writeText(apiKey);
+    if (!displayKey || displayKey.includes("•••")) {
+      toast.error("No key available to copy.");
+      return;
+    }
+    navigator.clipboard.writeText(displayKey);
     toast.success("API Key copied to clipboard!");
   };
 
@@ -35,9 +52,24 @@ export function ApiSettings() {
     setShowConfirmModal(true);
   };
 
-  const confirmRegenerate = () => {
-    toast.success("API Key regenerated!");
-    setShowConfirmModal(false);
+  const confirmRegenerate = async () => {
+    if (!member?.companyId || !member?.id) return;
+    setLoading(true);
+    try {
+      const result = await generateApiKey({
+        companyId: member.companyId as Id<"companies">,
+        userId: member.id as Id<"users">,
+        name: "Standard Access Key",
+      });
+      setNewKey(result.rawKey);
+      setShowApiKey(true);
+      toast.success("New API Key generated successfully!");
+      setShowConfirmModal(false);
+    } catch {
+      toast.error("Failed to generate API Key.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -69,7 +101,7 @@ export function ApiSettings() {
         <div className="flex items-center gap-2 mb-4">
           <div className="flex-1 flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 font-mono text-sm text-gray-700 relative group transition-colors hover:border-gray-300">
             <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-              {showApiKey ? apiKey : "api_live_••••••••••••••••••••••••"}
+              {showApiKey ? displayKey : "api_live_••••••••••••••••••••••••"}
             </span>
 
             {/* Actions */}
@@ -92,14 +124,23 @@ export function ApiSettings() {
           </div>
         </div>
 
+        {newKey && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 font-medium">
+            IMPORTANT: Copy your new key now. You won&apos;t be able to see it again!
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <p className="text-xs text-gray-400">Created on Jan 24, 2026</p>
+          <p className="text-xs text-gray-400">
+            {activeKey ? `Created on ${new Date(activeKey.createdAt).toLocaleDateString()}` : "No active keys"}
+          </p>
           <Button
             variant="ghost"
             onClick={handleRegenerateKey}
+            disabled={loading}
             className="flex items-center gap-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors w-full sm:w-auto"
           >
-            <RefreshCw size={14} />
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
             Roll Key
           </Button>
         </div>
@@ -137,6 +178,7 @@ export function ApiSettings() {
             <AlertDialogCancel className="mt-0 flex-1">Cancel</AlertDialogCancel>
             <Button
               onClick={confirmRegenerate}
+              disabled={loading}
               className="flex-1 bg-red-600 hover:bg-red-700 text-white"
             >
               Regenerate

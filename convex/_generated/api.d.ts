@@ -9,8 +9,23 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as analytics from "../analytics.js";
+import type * as apiKeys from "../apiKeys.js";
+import type * as audit from "../audit.js";
+import type * as auth from "../auth.js";
+import type * as balances from "../balances.js";
+import type * as companies from "../companies.js";
+import type * as debug from "../debug.js";
+import type * as emails from "../emails.js";
+import type * as http from "../http.js";
 import type * as init from "../init.js";
+import type * as notifications from "../notifications.js";
+import type * as payments from "../payments.js";
+import type * as permissions from "../permissions.js";
 import type * as pricing from "../pricing.js";
+import type * as reports from "../reports.js";
+import type * as services from "../services.js";
+import type * as transactions from "../transactions.js";
 import type * as users from "../users.js";
 import type * as verifications from "../verifications.js";
 
@@ -22,8 +37,23 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  analytics: typeof analytics;
+  apiKeys: typeof apiKeys;
+  audit: typeof audit;
+  auth: typeof auth;
+  balances: typeof balances;
+  companies: typeof companies;
+  debug: typeof debug;
+  emails: typeof emails;
+  http: typeof http;
   init: typeof init;
+  notifications: typeof notifications;
+  payments: typeof payments;
+  permissions: typeof permissions;
   pricing: typeof pricing;
+  reports: typeof reports;
+  services: typeof services;
+  transactions: typeof transactions;
   users: typeof users;
   verifications: typeof verifications;
 }>;

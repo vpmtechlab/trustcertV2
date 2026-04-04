@@ -16,6 +16,12 @@ export default defineSchema({
     createdAt: v.number(), // Unix timestamp
   }).index("by_name", ["name"]),
 
+  rolePermissions: defineTable({
+    companyId: v.id("companies"),
+    role: v.string(), // e.g., 'Admin', 'Compliance Officer'
+    permissions: v.array(v.string()),
+  }).index("by_company_and_role", ["companyId", "role"]),
+
   users: defineTable({
     companyId: v.id("companies"),
     firstName: v.string(),
@@ -25,6 +31,16 @@ export default defineSchema({
     role: v.string(), // e.g., 'admin', 'viewer'
     status: v.string(), // e.g., 'active', 'inactive'
     passwordHash: v.optional(v.string()), // Optional, depending on Auth provider
+    needsPasswordChange: v.optional(v.boolean()), // For first-time login
+    has_completed_tour: v.optional(v.boolean()), // App tour status
+    setupToken: v.optional(v.string()), // For token-based password setup
+    setupTokenExpires: v.optional(v.number()), // Expiration for the token
+    customPermissions: v.optional(v.array(v.string())), // User specific permissions override
+    phone: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    notificationPreferences: v.optional(v.any()), // JSON object for toggles
+    twoFactorEnabled: v.optional(v.boolean()),
+    twoFactorSecret: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_company", ["companyId"]).index("by_email", ["email"]),
 
@@ -72,4 +88,70 @@ export default defineSchema({
     price: v.number(), // e.g. 15.00
     updatedAt: v.number(),
   }).index("by_service", ["serviceId"]),
+
+  // ── Service Management ──────────────────────────────────────────────────────
+
+  // Top-level service categories (e.g. "KYC Services", "AML")
+  serviceCategories: defineTable({
+    name: v.string(),        // "KYC Services"
+    slug: v.string(),        // "kyc" — stable ID for business logic
+    description: v.optional(v.string()),
+    icon: v.string(),        // lucide icon name, e.g. "UserCheck"
+    color: v.string(),       // tailwind classes, e.g. "bg-blue-100 text-blue-600"
+    order: v.optional(v.number()), // for display ordering
+    isActive: v.boolean(),
+  }).index("by_slug", ["slug"]),
+
+  // Actions within a category (step 2 in the wizard, e.g. "Enhanced KYC")
+  serviceActions: defineTable({
+    categoryId: v.id("serviceCategories"),
+    label: v.string(),       // "Enhanced KYC"
+    slug: v.string(),        // "enhanced_kyc"
+    enabled: v.boolean(),
+    order: v.optional(v.number()),
+  }).index("by_category", ["categoryId"]),
+
+  // Check types within a category (step 3 dropdown, e.g. "National ID", "Passport")
+  serviceCheckTypes: defineTable({
+    categoryId: v.id("serviceCategories"),
+    label: v.string(),       // "NATIONAL ID"
+    slug: v.string(),        // "national_id" — matches pricing.serviceId
+    order: v.optional(v.number()),
+  }).index("by_category", ["categoryId"]),
+
+  auditLogs: defineTable({
+    companyId: v.optional(v.id("companies")),
+    userId: v.optional(v.id("users")),
+    action: v.string(),       // e.g. "VERIFICATION_CREATED", "FUNDS_ADDED"
+    entityId: v.optional(v.string()), // ID of the affected record
+    entityType: v.optional(v.string()), // e.g. "job", "balance", "user"
+    details: v.string(),      // Human friendly summary
+    metadata: v.optional(v.any()), // JSON payload for diffs or details
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"])
+    .index("by_user", ["userId"])
+    .index("by_action", ["action"]),
+
+  notifications: defineTable({
+    companyId: v.id("companies"),
+    userId: v.id("users"),
+    title: v.string(),
+    message: v.string(),
+    type: v.string(), // 'info', 'success', 'warning', 'error'
+    isRead: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"])
+    .index("by_user", ["userId"]),
+
+  generatedReports: defineTable({
+    companyId: v.id("companies"),
+    userId: v.id("users"),
+    name: v.string(),
+    type: v.string(), // e.g., 'Compliance Summary', 'Financial Report'
+    format: v.string(), // 'PDF', 'CSV'
+    status: v.string(), // 'completed', 'generating', 'failed'
+    config: v.any(), // Stores filter settings
+    createdAt: v.number(),
+  }).index("by_company", ["companyId"]),
 });
+

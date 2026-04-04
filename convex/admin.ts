@@ -1,5 +1,6 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { recordAuditLog } from "./audit";
 
 /**
  * Super Admin Queries
@@ -106,3 +107,167 @@ export const getAllJobs = query({
   },
 });
 
+export const getCompanyUsers = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .collect();
+  },
+});
+
+export const updateCompany = mutation({
+  args: {
+    companyId: v.id("companies"),
+    name: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    status: v.optional(v.string()),
+    country: v.optional(v.string()),
+    location: v.optional(v.string()),
+    support_email: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { companyId, ...updates } = args;
+    await ctx.db.patch(companyId, updates);
+
+    await recordAuditLog(ctx, {
+      companyId,
+      action: "COMPANY_UPDATED",
+      entityId: companyId,
+      entityType: "company",
+      details: `Updated company details for ${args.name || "company"}`,
+      metadata: { updates },
+    });
+  },
+});
+
+export const getCompanyById = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, args) => {
+    const company = await ctx.db.get(args.companyId);
+    if (!company) return null;
+    
+    // Statistics for the company
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .collect();
+      
+    const jobs = await ctx.db
+      .query("jobs")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .collect();
+
+    const balanceDoc = await ctx.db
+      .query("balances")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .first();
+
+    return {
+      ...company,
+      userCount: users.length,
+      verificationCount: jobs.length,
+      availableBalance: balanceDoc?.availableBalance || 0,
+    };
+  },
+});
+
+export const getAdminDashboardAnalytics = query({
+  args: { 
+    days: v.optional(v.number()) 
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const threshold = args.days ? now - (args.days * 24 * 60 * 60 * 1000) : 0;
+
+    // 1. Fetch all companies and all jobs
+    const companies = await ctx.db.query("companies").collect();
+    const allJobs = await ctx.db.query("jobs").collect();
+
+    // 2. Filter jobs by date range
+    const filteredJobs = allJobs.filter(job => job.createdAt >= threshold);
+
+    // ── Global Metrics ────────────────────────────────────────────────────────
+    const totalRevenue = filteredJobs.reduce((sum, job) => sum + (job.feesCharged || 0), 0);
+    const totalVerifications = filteredJobs.length;
+    const activeCompaniesCount = new Set(filteredJobs.map(j => j.companyId)).size;
+    
+    const approvedJobs = filteredJobs.filter(j => j.resultStatus === "approved").length;
+    const failedJobs = filteredJobs.filter(j => j.resultStatus === "failed").length;
+    const successRate = totalVerifications > 0 
+      ? Math.round((approvedJobs / (approvedJobs + failedJobs || 1)) * 100) 
+      : 100;
+
+    // ── Volume & Revenue Trends (Area Chart) ──────────────────────────────────
+    const volumeDays = args.days || 30;
+    const trendDataMap = new Map<string, { date: string, count: number, revenue: number }>();
+    
+    for (let i = 0; i < volumeDays; i++) {
+        const date = new Date(now - (i * 24 * 60 * 60 * 1000));
+        const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+        trendDataMap.set(dateStr, { date: dateStr, count: 0, revenue: 0 });
+    }
+
+    filteredJobs.forEach(job => {
+        const dateStr = new Date(job.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+        if (trendDataMap.has(dateStr)) {
+            const current = trendDataMap.get(dateStr)!;
+            trendDataMap.set(dateStr, {
+                ...current,
+                count: current.count + 1,
+                revenue: current.revenue + (job.feesCharged || 0)
+            });
+        }
+    });
+
+    const trendData = Array.from(trendDataMap.values()).reverse();
+
+    // ── Company Leaderboard (Bar Chart) ───────────────────────────────────────
+    const companyStats = new Map<string, { name: string, count: number, revenue: number }>();
+    
+    filteredJobs.forEach(job => {
+        const company = companies.find(c => c._id === job.companyId);
+        const name = company?.name ?? "Unknown Company";
+        const current = companyStats.get(job.companyId) || { name, count: 0, revenue: 0 };
+        companyStats.set(job.companyId, {
+            ...current,
+            count: current.count + 1,
+            revenue: current.revenue + (job.feesCharged || 0)
+        });
+    });
+
+    const leaderboard = Array.from(companyStats.values())
+        .sort((a,b) => b.count - a.count)
+        .slice(0, 5);
+
+    // ── Global Service Distribution (Pie) ────────────────────────────────────
+    const serviceCounts = new Map<string, number>();
+    const checkTypes = await ctx.db.query("serviceCheckTypes").collect();
+    const categories = await ctx.db.query("serviceCategories").collect();
+
+    filteredJobs.forEach(job => {
+        const checkType = checkTypes.find(ct => ct.slug === job.serviceType);
+        const category = categories.find(c => c._id === checkType?.categoryId);
+        const categoryName = category?.name ?? "Other";
+        serviceCounts.set(categoryName, (serviceCounts.get(categoryName) || 0) + 1);
+    });
+
+    const serviceDistribution = Array.from(serviceCounts.entries()).map(([name, value]) => ({
+        name,
+        value,
+    }));
+
+    return {
+      metrics: {
+        totalRevenue,
+        totalVerifications,
+        activeCompanies: activeCompaniesCount,
+        successRate
+      },
+      trendData,
+      leaderboard,
+      serviceDistribution
+    };
+  },
+});

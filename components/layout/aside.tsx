@@ -13,7 +13,8 @@ import {
   MdVerified, 
   MdReceipt, 
   MdSettings, 
-  MdHelpOutline
+  MdHelpOutline,
+  MdHistory
 } from "react-icons/md";
 import { LogOut, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 
@@ -21,10 +22,11 @@ const clientNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: MdDashboard, exact: true },
   { label: "Analytics", href: "/dashboard/analytics", icon: MdAnalytics },
   { label: "Job List", href: "/dashboard/jobs", icon: MdWorkOutline },
-  { label: "User Management", href: "/dashboard/user-management", icon: MdPeopleOutline },
+  { label: "User Management", href: "/dashboard/users", icon: MdPeopleOutline },
   { label: "Verification", href: "/dashboard/verification", icon: MdVerified },
-  { label: "Reports", href: "/dashboard/reports", icon: MdReceipt },
   { label: "Billing", href: "/dashboard/billing", icon: MdReceipt },
+  { label: "Reports", href: "/dashboard/reports", icon: MdReceipt },
+  { label: "Audit Logs", href: "/dashboard/audit", icon: MdHistory },
   { label: "Settings", href: "/dashboard/settings", icon: MdSettings },
 ];
 
@@ -35,6 +37,7 @@ const adminNavItems = [
   { label: "Global Billing", href: "/admin/billing", icon: MdReceipt },
   { label: "Users & Roles", href: "/admin/users", icon: MdPeopleOutline },
   { label: "Reports", href: "/admin/reports", icon: MdAnalytics },
+  { label: "Audit Logs", href: "/admin/audit", icon: MdHistory },
 ];
 
 export function Aside() {
@@ -127,7 +130,7 @@ export function Aside() {
         <div className="flex-1 flex flex-col justify-between overflow-y-auto overflow-x-hidden gap-y-3 px-2 mt-4 custom-scrollbar">
           <div>
             <hr className="w-full border-white/10 mb-5" />
-            <div className="flex flex-col gap-1">
+            <div id="sidebar-nav" className="flex flex-col gap-1">
               {navItems.map((item) => {
                 const active = item.exact 
                   ? pathname === item.href 
@@ -162,6 +165,7 @@ export function Aside() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    id={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                     onClick={() => {
                       if (isMobile) setSideBarOpen(false);
                     }}
