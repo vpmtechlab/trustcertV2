@@ -6,6 +6,7 @@ import { IoChevronDown, IoMenu } from "react-icons/io5";
 import { HiOutlineLogout } from "react-icons/hi";
 import { usePathname, useRouter } from "next/navigation";
 import { User, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { NotificationDropdown } from "./notification-dropdown";
 import {
 	Popover,
@@ -86,7 +87,17 @@ export function Topbar() {
 			</div>
 
 			{/* Right Section: Avatar */}
-			<div className="flex items-center gap-4">
+			<div id="header-actions" className="flex items-center gap-4">
+				<Button 
+					variant="outline" 
+					size="sm" 
+					onClick={() => (window as any).startAppTour?.()}
+					className="hidden md:flex items-center gap-2 rounded-xl border-gray-200 text-gray-600 hover:text-[#023e4a] hover:bg-teal-50/50"
+				>
+					<Shield size={14} className="text-teal-600" />
+					<span>Take Tour</span>
+				</Button>
+				
 				<NotificationDropdown />
 
 				<Popover open={popoverOpen} onOpenChange={setPopoverOpen}>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { UserCog, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,37 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { User } from "@/types/user";
+
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: any;
-  onSave: (user: any) => void;
+  user: User | null;
+  onSave: (user: User) => void;
 }
 
 export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalProps) {
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    role: "",
-    status: "",
+    name: user?.name || "",
+    email: user?.email || "",
+    role: user?.role || "",
+    status: user?.status || "",
   });
 
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || "",
-        email: user.email || "",
-        role: user.role || "",
-        status: user.status || "",
-      });
-    }
-  }, [user, isOpen]);
-
   const roles = [
-    { value: "Compliance Admin", label: "Compliance Admin" },
-    { value: "System Admin", label: "System Admin" },
-    { value: "Financial Admin", label: "Financial Admin" },
-    { value: "Viewer", label: "Viewer" },
+    { value: "Admin", label: "Admin" },
+    { value: "Compliance Officer", label: "Compliance Officer" },
   ];
 
   const statuses = [
@@ -46,13 +35,15 @@ export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalPr
     { value: "Disabled", label: "Disabled" },
   ];
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = () => {
-    onSave({ ...user, ...formData });
-    onClose();
+    if (user) {
+      onSave({ ...user, ...formData });
+      onClose();
+    }
   };
 
   if (!user) return null;
@@ -78,11 +69,6 @@ export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalPr
 
         {/* Avatar Preview */}
         <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-          <img
-            src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
-            alt={user.name}
-            className="w-14 h-14 rounded-full bg-gray-200 object-cover"
-          />
           <div>
             <p className="font-medium text-gray-900">{formData.name || user.name}</p>
             <p className="text-sm text-gray-500">{formData.email || user.email}</p>
@@ -115,7 +101,7 @@ export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalPr
           <div className="grid gap-2">
             <Label htmlFor="edit-role">Role</Label>
             <Select value={formData.role} onValueChange={(val) => handleChange("role", val || "")}>
-              <SelectTrigger id="edit-role">
+              <SelectTrigger id="edit-role" className="w-full">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
@@ -131,7 +117,7 @@ export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalPr
           <div className="grid gap-2">
             <Label htmlFor="edit-status">Status</Label>
             <Select value={formData.status} onValueChange={(val) => handleChange("status", val || "")}>
-              <SelectTrigger id="edit-status">
+              <SelectTrigger id="edit-status" className="w-full">
                 <SelectValue placeholder="Select a status" />
               </SelectTrigger>
               <SelectContent>

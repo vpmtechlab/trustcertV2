@@ -33,14 +33,12 @@ export function ProfileSettings() {
         firstName: member.first_name || "",
         lastName: member.last_name || "",
         email: member.email || "",
-        phone: (member.phone as string) || "+254 700 000 000",
+        phone: (member.phone as string) || "",
         role: member.role || "Administrator",
-        bio: (member.bio as string) || "Compliance professional.",
+        bio: (member.bio as string) || "",
       });
     }
   }, [member]);
-
-  const avatar = "https://i.pravatar.cc/150?u=a042581f4e29026024d";
 
   const handleChange = (field: string, value: string) => {
     setProfileData((prev) => ({ ...prev, [field]: value }));
@@ -55,6 +53,9 @@ export function ProfileSettings() {
         firstName: profileData.firstName,
         surname: profileData.lastName,
         role: profileData.role,
+        phone: profileData.phone,
+        bio: profileData.bio,
+        performedBy: member.id as Id<"users">,
       });
       
       // Update local context
@@ -63,6 +64,8 @@ export function ProfileSettings() {
         first_name: profileData.firstName,
         last_name: profileData.lastName,
         role: profileData.role,
+        phone: profileData.phone,
+        bio: profileData.bio,
       });
 
       toast.success("Profile updated successfully!");
@@ -84,33 +87,13 @@ export function ProfileSettings() {
 
       {/* Avatar Section */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-        <div className="relative group w-20 h-20 shrink-0">
-          <Image
-            src={avatar}
-            alt="Profile"
-            width={80}
-            height={80}
-            unoptimized
-            className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm"
-          />
-          <button className="absolute bottom-0 right-0 p-1.5 bg-secondary text-white rounded-full shadow-md hover:bg-gray-800 transition-colors">
-            <Camera size={14} />
-          </button>
-        </div>
+      
         <div className="flex-1">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2">
             {profileData.firstName} {profileData.lastName}
             <BadgeCheck size={16} className="text-blue-500" />
           </h3>
           <p className="text-sm text-gray-500">{profileData.role}</p>
-          <div className="flex items-center gap-2 mt-3">
-            <Button variant="outline" size="sm" className="h-8 text-xs font-medium">
-              Change Photo
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50">
-              Remove
-            </Button>
-          </div>
         </div>
       </div>
 

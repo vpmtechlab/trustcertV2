@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
 import { AppProvider } from "@/components/providers/app-provider";
 import { ConvexClientProvider } from "@/components/providers/convex-client-provider";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const urbanist = Urbanist({
@@ -28,6 +29,7 @@ export default function RootLayout({
         <ConvexClientProvider>
           <AppProvider>
             {children}
+            <Toaster richColors position="top-right" />
           </AppProvider>
         </ConvexClientProvider>
       </body>

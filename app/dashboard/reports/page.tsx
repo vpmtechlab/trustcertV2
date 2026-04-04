@@ -14,17 +14,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { useApp } from "@/components/providers/app-provider";
+import { format } from "date-fns";
+import { downloadCSV, downloadPDF } from "@/lib/export-utils";
 
-const reports = [
-  { id: 1, name: "January 2025 Compliance Summary", date: "Jan 31, 2025", type: "Monthly" },
-  { id: 2, name: "December 2024 Compliance Summary", date: "Dec 31, 2024", type: "Monthly" },
-  { id: 3, name: "2024 Annual Verification Report", date: "Dec 31, 2024", type: "Annual" },
-  { id: 4, name: "Q4 2024 Audit Log", date: "Jan 15, 2025", type: "Quarterly" },
-];
+// Types for our reports
+interface GeneratedReport {
+  _id: Id<"generatedReports">;
+  name: string;
+  type: string;
+  format: string;
+  config?: {
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    reportType?: string;
+    allTime?: boolean;
+  };
+  createdAt: number;
+}
 
 export default function ReportsPage() {
+  const { member } = useApp();
   const [dateRange, setDateRange] = useState("30");
   const [downloading, setDownloading] = useState(false);
 
@@ -36,12 +50,124 @@ export default function ReportsPage() {
     company?._id ? { companyId: company._id, days: parseInt(dateRange) || undefined } : "skip"
   );
 
-  const handleDownload = (reportName: string) => {
+  // 3. Fetch real report history
+  const reports = useQuery(api.reports.listReports, 
+    company?._id ? { companyId: company._id, limit: 5 } : "skip"
+  );
+
+  const createReport = useMutation(api.reports.createReport);
+
+  const allVerifications = useQuery(api.verifications.getVerificationsByCompany, 
+    company?._id ? { companyId: company._id } : "skip"
+  );
+
+  const handleDownload = (report: GeneratedReport) => {
+    const isReportObj = typeof report !== "string";
+    const name = isReportObj ? report.name : report;
+    const formatType = isReportObj ? report.format.toUpperCase() : "CSV";
+    
+    // For CSV, we want actual verification data
+    if (formatType === "CSV") {
+      let dataToExport: Record<string, string | number | boolean | null | undefined>[] = [];
+      
+      if (!allVerifications) {
+        toast.error("Data is still loading. Please try again in a moment.");
+        return;
+      }
+
+      // Filter by report config if available
+      dataToExport = allVerifications.filter(v => {
+        if (!isReportObj || !report.config) return true;
+        const { startDate, endDate, status } = report.config;
+        const createdAt = v.createdAt;
+        
+        if (startDate && createdAt < new Date(startDate).getTime()) return false;
+        if (endDate && createdAt > new Date(endDate).getTime()) return false;
+        if (status && status !== "all" && v.resultStatus !== status) return false;
+        
+        return true;
+      }).map(v => ({
+        Date: format(v.createdAt, "yyyy-MM-dd HH:mm"),
+        Service: v.serviceName || v.serviceType,
+        Status: v.resultStatus.toUpperCase(),
+        Entity: v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+        "Reference ID": v._id.slice(-8).toUpperCase(),
+        Fee: v.feesCharged ? `$${v.feesCharged.toFixed(2)}` : "$0.00",
+        Source: v.source
+      }));
+
+      if (dataToExport.length === 0) {
+        toast.error("No records found for the selected report criteria.");
+        return;
+      }
+
+      downloadCSV(dataToExport, name.replace(/[^a-z0-9]/gi, "_"));
+      toast.success(`Downloaded ${name}.csv`);
+    } else if (formatType === "PDF") {
+      const headers = ["Date", "Service", "Status", "Entity", "Ref ID", "Fee"];
+      const rows = allVerifications ? allVerifications.filter(v => {
+          if (!isReportObj || !report.config) return true;
+          const { startDate, endDate, status } = report.config;
+          const createdAt = v.createdAt;
+          if (startDate && createdAt < new Date(startDate).getTime()) return false;
+          if (endDate && createdAt > new Date(endDate).getTime()) return false;
+          if (status && status !== "all" && v.resultStatus !== status) return false;
+          return true;
+        }).map(v => [
+          format(v.createdAt, "MM/dd/yy"),
+          v.serviceName || v.serviceType,
+          v.resultStatus.toUpperCase(),
+          v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+          v._id.slice(-6).toUpperCase(),
+          v.feesCharged ? `$${v.feesCharged.toFixed(2)}` : "$0.00"
+        ]) : [];
+      
+      downloadPDF(headers, rows, name.replace(/\s+/g, "_"), name);
+      toast.success(`Exported ${name} as PDF`);
+    }
+  };
+
+  const handleGlobalExport = async () => {
+    if (!company?._id || !member?.id || !allVerifications) {
+      toast.error("Data still loading, please wait...");
+      return;
+    }
+    
     setDownloading(true);
-    setTimeout(() => {
-      setDownloading(false);
-      toast.success(`Downloading ${reportName}...`);
-    }, 1500);
+    try {
+      const reportName = `Full_Compliance_Export_${format(new Date(), "yyyyMMdd")}`;
+      
+      // 1. Create record in history
+      await createReport({
+        companyId: company._id,
+        userId: member.id as Id<"users">,
+        name: reportName.replace(/_/g, " "),
+        type: "Full Data Export",
+        format: "CSV",
+        status: "completed",
+        config: { allTime: true },
+      });
+      
+      // 2. Prepare high-quality data
+      const exportData = allVerifications.map(v => ({
+        "Verification Date": format(v.createdAt, "yyyy-MM-dd HH:mm:ss"),
+        "Service Type": v.serviceName || v.serviceType,
+        "Result Status": v.resultStatus.toUpperCase(),
+        "Subject Name": v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+        "ID/Reg Number": v.entityData?.idNumber || v.entityData?.companyNumber || v.entityData?.pin || "N/A",
+        "Fees (USD)": v.feesCharged || 0,
+        "Source Channel": v.source,
+        "Message": v.message || "Processed"
+      }));
+      
+      downloadCSV(exportData, reportName);
+      toast.success("Full report generated and downloaded!");
+    } catch (error) {
+      toast.error("Failed to generate export.");
+      console.error(error);
+    } finally {
+      setTimeout(() => setDownloading(false), 1000);
+    }
   };
 
   return (
@@ -74,7 +200,7 @@ export default function ReportsPage() {
           </div>
 
           <Button
-            onClick={() => handleDownload("Full Data Export")}
+            onClick={handleGlobalExport}
             disabled={downloading}
             className="bg-primary space-x-2 text-white hover:bg-[#146c11] px-5 shadow-sm"
           >
@@ -109,24 +235,32 @@ export default function ReportsPage() {
             </div>
             
             <div className="space-y-4">
-              {reports.map((report) => (
-                <div 
-                  key={report.id} 
-                  className="group p-4 bg-gray-50/50 hover:bg-white hover:shadow-lg hover:border-primary/20 border border-transparent rounded-2xl transition-all duration-300 cursor-pointer"
-                  onClick={() => handleDownload(report.name)}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="text-sm font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-                      {report.name}
-                    </p>
-                    <Download size={14} className="text-gray-300 group-hover:text-primary shrink-0 transition-colors" />
+              {!reports ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
+                ))
+              ) : reports.length === 0 ? (
+                <p className="text-xs text-center py-8 text-gray-400 font-medium italic">No recent exports found.</p>
+              ) : (
+                reports.map((report) => (
+                  <div 
+                    key={report._id} 
+                    className="group p-4 bg-gray-50/50 hover:bg-white hover:shadow-lg hover:border-primary/20 border border-transparent rounded-2xl transition-all duration-300 cursor-pointer"
+                    onClick={() => handleDownload(report)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                        {report.name}
+                      </p>
+                      <Download size={14} className="text-gray-300 group-hover:text-primary shrink-0 transition-colors" />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <span>{format(report.createdAt, "MMM dd, yyyy")}</span>
+                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{report.type}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                    <span>{report.date}</span>
-                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{report.type}</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
             <Button variant="ghost" className="w-full text-xs text-primary font-bold hover:bg-primary/5 rounded-xl">

@@ -1,50 +1,59 @@
 "use client";
 
-import React, { useContext } from "react";
-import { TrendingUp, TrendingDown, CheckCircle, Clock, Users, Activity } from "lucide-react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { AppContext } from "@/components/providers/app-provider";
-import { Id } from "@/convex/_generated/dataModel";
+import React from "react";
+import { TrendingUp, CheckCircle, Clock, Activity, LucideIcon } from "lucide-react";
 
-export function StatsCards() {
-  const { member } = useContext(AppContext);
-  const statsOverview = useQuery(api.analytics.getStatsOverview, 
-    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
-  );
+interface StatsCardsProps {
+  data: {
+    totalJobs: number;
+    approvedJobs: number;
+    passRate: string;
+    avgTime: string;
+  };
+}
 
-  const stats = [
+interface StatItem {
+  label: string;
+  value: string | number;
+  change: string;
+  trend: "up" | "down";
+  icon: LucideIcon;
+  color: "blue" | "green" | "purple" | "orange";
+}
+
+export function StatsCards({ data }: StatsCardsProps) {
+  const stats: StatItem[] = [
     {
       label: "Total Verifications",
-      value: statsOverview?.totalVerifications.value ?? "...",
-      change: statsOverview?.totalVerifications.change ?? "",
-      trend: statsOverview?.totalVerifications.trend ?? "up",
+      value: data.totalJobs,
+      change: "+12.5%",
+      trend: "up",
       icon: Activity,
-      color: "blue" as const,
+      color: "blue",
     },
     {
       label: "Success Rate",
-      value: statsOverview?.successRate.value ?? "...",
-      change: statsOverview?.successRate.change ?? "",
-      trend: statsOverview?.successRate.trend ?? "up",
+      value: data.passRate,
+      change: "+2.1%",
+      trend: "up",
       icon: CheckCircle,
-      color: "green" as const,
+      color: "green",
     },
     {
       label: "Avg. Processing Time",
-      value: statsOverview?.avgProcessingTime.value ?? "...",
-      change: statsOverview?.avgProcessingTime.change ?? "",
-      trend: statsOverview?.avgProcessingTime.trend ?? "up",
+      value: data.avgTime,
+      change: "-0.2s",
+      trend: "up", // up meaning improvement here
       icon: Clock,
-      color: "purple" as const,
+      color: "purple",
     },
     {
-      label: "Active Users",
-      value: statsOverview?.activeUsers.value ?? "...",
-      change: statsOverview?.activeUsers.change ?? "",
-      trend: statsOverview?.activeUsers.trend ?? "up",
-      icon: Users,
-      color: "orange" as const,
+      label: "Approved Requests",
+      value: data.approvedJobs,
+      change: "+5.4%",
+      trend: "up",
+      icon: Activity,
+      color: "orange",
     },
   ];
 
@@ -76,19 +85,11 @@ export function StatsCards() {
 
                 {/* Change indicator */}
                 <div className="flex items-center gap-1 mt-2">
-                  {stat.value !== "..." && (
-                    <>
-                      {stat.trend === "up" ? (
-                        <TrendingUp size={14} className="text-green-500" />
-                      ) : (
-                        <TrendingDown size={14} className="text-red-500" />
-                      )}
-                      <span className={`text-xs font-medium ${stat.trend === "up" ? "text-green-600" : "text-red-600"}`}>
-                        {stat.change}
-                      </span>
-                      <span className="text-xs text-gray-400">vs last period</span>
-                    </>
-                  )}
+                  <TrendingUp size={14} className="text-green-500" />
+                  <span className="text-xs font-medium text-green-600">
+                    {stat.change}
+                  </span>
+                  <span className="text-xs text-gray-400">vs last period</span>
                 </div>
               </div>
 
@@ -108,4 +109,3 @@ export function StatsCards() {
     </div>
   );
 }
-

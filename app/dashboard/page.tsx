@@ -29,14 +29,15 @@ export default function DashboardHome() {
         </p>
       </div>
 
-      {/* Top Row: Balance & Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div id="user-stats" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StatsGrid />
         <BalanceCard />
       </div>
 
       {/* Middle Row: Quick Actions */}
-      <QuickActions />
+      <div id="service-selector">
+        <QuickActions />
+      </div>
 
       {/* Bottom Row: Charts & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

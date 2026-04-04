@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
-import { recordNotification } from "./audit";
+import { recordNotification, recordAuditLog } from "./audit";
 
 // Mock to verify an API key
 export const verifyApiKey = query({
@@ -122,11 +122,14 @@ export const login = mutation({
   args: {
     email: v.string(),
     password: v.string(),
+    userAgent: v.optional(v.string()),
+    location: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const { email, password, userAgent, location } = args;
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("by_email", (q) => q.eq("email", email))
       .first();
 
     if (!user) {
@@ -137,14 +140,34 @@ export const login = mutation({
     if (!user.password) {
       throw new Error("Invalid email or password");
     }
-    const isMatch = bcrypt.compareSync(args.password, user.password);
+    const isMatch = bcrypt.compareSync(password, user.password);
     if (!isMatch) {
       throw new Error("Invalid email or password");
     }
 
-    if (user.status !== "active") {
+    if (user.status !== "active" && user.status !== "invited") {
       throw new Error("Account is inactive. Please contact support.");
     }
+
+    // If 2FA is enabled, return a temporary flag instead of complete member data
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+      return { 
+        twoFactorRequired: true, 
+        userId: user._id 
+      };
+    }
+
+    // Record Login in Audit Logs (only if 2FA is not required or already verified)
+    await recordAuditLog(ctx, {
+      companyId: user.companyId,
+      userId: user._id,
+      action: "USER_LOGIN",
+      details: `User logged in from ${userAgent || "unknown device"}`,
+      metadata: {
+        userAgent,
+        location: location || "Unknown Location",
+      },
+    });
 
     return {
       userId: user._id,
@@ -153,7 +176,182 @@ export const login = mutation({
       email: user.email,
       first_name: user.firstName,
       last_name: user.surname,
+      needsPasswordChange: user.needsPasswordChange ?? false,
+      has_completed_tour: user.has_completed_tour ?? false,
     };
+  },
+});
+
+export const inviteUser = mutation({
+  args: {
+    companyId: v.id("companies"),
+    firstName: v.string(),
+    surname: v.string(),
+    email: v.string(),
+    role: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if user email already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existingUser) {
+      throw new Error("User with this email already exists.");
+    }
+
+    // Generate a random temporary password
+    const tempPassword = Math.random().toString(36).slice(-10);
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(tempPassword, salt);
+
+    const userId = await ctx.db.insert("users", {
+      companyId: args.companyId,
+      firstName: args.firstName,
+      surname: args.surname,
+      email: args.email,
+      password: hashedPassword,
+      role: args.role,
+      status: "invited",
+      needsPasswordChange: true,
+      has_completed_tour: false,
+      setupToken: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+      setupTokenExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      createdAt: Date.now(),
+    });
+
+    const user = await ctx.db.get(userId);
+    return { userId, tempPassword, setupToken: user?.setupToken };
+  },
+});
+
+export const listUsers = query({
+  args: {
+    companyId: v.id("companies"),
+    role: v.optional(v.string()),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const usersQuery = ctx.db
+      .query("users")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId));
+
+    const users = await usersQuery.collect();
+
+    // Filter results if needed (Convex collection is limited, but for a single company it's fine)
+    return users.filter(u => {
+      const matchRole = !args.role || args.role === "all" || u.role.toLowerCase() === args.role.toLowerCase();
+      const matchStatus = !args.status || args.status === "all" || u.status.toLowerCase() === args.status.toLowerCase();
+      return matchRole && matchStatus;
+    }).map(u => ({
+      id: u._id,
+      name: `${u.firstName} ${u.surname}`,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      companyId: u.companyId,
+      avatar: `https://i.pravatar.cc/150?u=${u._id}`,
+      needsPasswordChange: u.needsPasswordChange ?? false,
+      has_completed_tour: u.has_completed_tour ?? false,
+      createdAt: u.createdAt,
+    }));
+  },
+});
+
+export const changePassword = mutation({
+  args: {
+    userId: v.id("users"),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+
+    // Validation: 8+ chars, uppercase, lowercase, special char
+    const hasUpperCase = /[A-Z]/.test(args.newPassword);
+    const hasLowerCase = /[a-z]/.test(args.newPassword);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(args.newPassword);
+    
+    if (args.newPassword.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+      throw new Error("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(args.newPassword, salt);
+
+    await ctx.db.patch(args.userId, {
+      password: hashedPassword,
+      needsPasswordChange: false,
+      status: "active", // Activate the user if they were 'invited'
+    });
+
+    return true;
+  },
+});
+
+export const setupPasswordWithToken = mutation({
+  args: {
+    token: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("setupToken"), args.token))
+      .first();
+
+    if (!user) {
+      throw new Error("Invalid or expired setup link. Please contact your administrator.");
+    }
+
+    if (user.setupTokenExpires && Date.now() > user.setupTokenExpires) {
+      throw new Error("Setup link has expired. Please contact your administrator.");
+    }
+
+    const hasUpperCase = /[A-Z]/.test(args.newPassword);
+    const hasLowerCase = /[a-z]/.test(args.newPassword);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(args.newPassword);
+    
+    if (args.newPassword.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+      throw new Error("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
+    }
+
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(args.newPassword, salt);
+
+    await ctx.db.patch(user._id, {
+      password: hashedPassword,
+      needsPasswordChange: false,
+      status: "active",
+      setupToken: undefined, // Clear the token
+      setupTokenExpires: undefined,
+    });
+
+    // Return user info for immediate login
+    return {
+      userId: user._id,
+      companyId: user.companyId,
+      role: user.role,
+      email: user.email,
+      first_name: user.firstName,
+      last_name: user.surname,
+      needsPasswordChange: false,
+      has_completed_tour: user.has_completed_tour ?? false,
+    };
+  },
+});
+
+export const updateTourStatus = mutation({
+  args: {
+    userId: v.id("users"),
+    completed: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      has_completed_tour: args.completed,
+    });
+    return true;
   },
 });
 
@@ -170,6 +368,8 @@ export const getUserById = query({
       role: user.role,
       companyId: user.companyId,
       profile_image_url: "", // Add if available in future
+      has_completed_tour: user.has_completed_tour ?? false,
+      twoFactorEnabled: !!user.twoFactorEnabled,
     };
   },
 });
@@ -180,27 +380,111 @@ export const updateUserProfile = mutation({
     firstName: v.string(),
     surname: v.string(),
     role: v.optional(v.string()),
-    // bio is not in schema but we can store it or add it to schema
+    phone: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    performedBy: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const { userId, ...updateData } = args;
+    const { userId, performedBy, ...updateData } = args;
     const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User not found");
     }
 
+    const roleChanged = updateData.role && updateData.role !== user.role;
+
     await ctx.db.patch(userId, updateData);
 
-    // Record notification instead of audit log
+    // Notify the user being edited
     await recordNotification(ctx, {
       companyId: user.companyId,
       userId: user._id,
       title: "Profile Updated",
-      message: `Your profile details have been successfully updated to ${args.firstName} ${args.surname}.`,
+      message: roleChanged ? `Your role has been updated to ${updateData.role}.` : `Your profile details have been successfully updated.`,
       type: "info",
     });
 
+    // Notify the person who performed the edit (if they are editing someone else)
+    if (performedBy && performedBy !== user._id) {
+       await recordNotification(ctx, {
+         companyId: user.companyId,
+         userId: performedBy,
+         title: "User Updated",
+         message: roleChanged ? `You updated ${user.firstName}'s role to "${updateData.role}".` : `You updated ${user.firstName}'s profile.`,
+         type: "info",
+       });
+    }
+
     return true;
+  },
+});
+
+export const deleteUser = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Record the deletion in audit log BEFORE actual delete since we need the user object
+    await ctx.db.insert("auditLogs", {
+      companyId: user.companyId,
+      action: "USER_DELETED",
+      entityId: args.userId,
+      entityType: "user",
+      details: `User ${user.firstName} ${user.surname} (${user.email}) was deleted.`,
+      createdAt: Date.now(),
+    });
+
+    // Delete the user
+    await ctx.db.delete(args.userId);
+
+    return true;
+  },
+});
+
+
+export const getUserStats = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, args) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .collect();
+
+    const total = users.length;
+    const active = users.filter((u) => u.status === "active").length;
+    const invited = users.filter((u) => u.status === "invited").length;
+    const admins = users.filter((u) => u.role === "admin" || u.role === "Admin").length;
+
+    return {
+      total,
+      active,
+      invited,
+      admins,
+    };
+  },
+});
+
+export const updateNotificationPreferences = mutation({
+  args: {
+    userId: v.id("users"),
+    preferences: v.any(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      notificationPreferences: args.preferences,
+    });
+    return true;
+  },
+});
+
+export const getUserPreferences = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    return user?.notificationPreferences || null;
   },
 });
 

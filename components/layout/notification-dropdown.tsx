@@ -24,8 +24,8 @@ import { Button } from "@/components/ui/button";
 export function NotificationDropdown() {
   const { member } = useContext(AppContext);
   
-  const notifications = useQuery(api.audit.getActiveNotificationsByCompany, 
-    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
+  const notifications = useQuery(api.audit.getActiveNotificationsByUser, 
+    member?.id ? { userId: member.id as Id<"users"> } : "skip"
   );
   
   const clearNotifications = useMutation(api.audit.clearNotifications);
@@ -33,8 +33,8 @@ export function NotificationDropdown() {
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
   const handleClear = async () => {
-    if (member?.companyId) {
-      await clearNotifications({ companyId: member.companyId as Id<"companies"> });
+    if (member?.id) {
+      await clearNotifications({ userId: member.id as Id<"users"> });
     }
   };
 

@@ -13,94 +13,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { format } from "date-fns";
 
 export default function BillingPage() {
-  const [balance] = useState(2450.0);
+  const { member, setShowTopUp } = useApp();
   const [currentPage, setCurrentPage] = useState(1);
-  const { setShowTopUp } = useApp();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const mockData = [
-    {
-      id: 1,
-      transactionId: "TXN-20260124-001",
-      date: "Jan 24, 2026",
-      type: "Top Up",
-      amount: 500.0,
-      status: "Success",
-    },
-    {
-      id: 2,
-      transactionId: "TXN-20260123-042",
-      date: "Jan 23, 2026",
-      type: "Verification",
-      amount: 15.0,
-      status: "Success",
-    },
-    {
-      id: 3,
-      transactionId: "TXN-20260123-041",
-      date: "Jan 23, 2026",
-      type: "Verification",
-      amount: 15.0,
-      status: "Success",
-    },
-    {
-      id: 4,
-      transactionId: "TXN-20260122-038",
-      date: "Jan 22, 2026",
-      type: "Top Up",
-      amount: 1000.0,
-      status: "Success",
-    },
-    {
-      id: 5,
-      transactionId: "TXN-20260122-037",
-      date: "Jan 22, 2026",
-      type: "Verification",
-      amount: 25.0,
-      status: "Success",
-    },
-    {
-      id: 6,
-      transactionId: "TXN-20260121-032",
-      date: "Jan 21, 2026",
-      type: "Verification",
-      amount: 10.0,
-      status: "Pending",
-    },
-    {
-      id: 7,
-      transactionId: "TXN-20260121-031",
-      date: "Jan 21, 2026",
-      type: "Verification",
-      amount: 10.0,
-      status: "Failed",
-    },
-    {
-      id: 8,
-      transactionId: "TXN-20260120-028",
-      date: "Jan 20, 2026",
-      type: "Top Up",
-      amount: 2000.0,
-      status: "Success",
-    },
-  ];
+  const balance = useQuery(api.balances.getAvailableBalance, 
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
+  );
+
+  const transactions = useQuery(api.transactions.list,
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
+  );
 
   const handleTopUp = () => {
     setShowTopUp(true);
   };
 
-  const filteredData = mockData.filter((row) =>
-    row.transactionId.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = (transactions || []).filter((row) =>
+    row._id.slice(-8).toUpperCase().includes(searchTerm.toUpperCase())
   );
 
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentData = filteredData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const lastTopUp = (transactions || [])
+    .filter(t => t.type === "top_up")
+    .sort((a, b) => b.createdAt - a.createdAt)[0];
 
   return (
     <div className="flex flex-col gap-6 p-5">
@@ -118,11 +66,13 @@ export default function BillingPage() {
           <div>
             <p className="text-sm font-medium text-gray-300">Available Balance</p>
             <h2 className="mt-2 text-4xl font-bold tracking-tight">
-              ${balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              ${(balance ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
             </h2>
             <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
               <Clock size={12} />
-              Last topped up: Jan 24, 2026
+              {lastTopUp 
+                ? `Last topped up: ${format(lastTopUp.createdAt, "MMM dd, yyyy")}`
+                : "No top-ups yet"}
             </div>
           </div>
           <Button
@@ -169,41 +119,49 @@ export default function BillingPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentData.length > 0 ? (
+                {transactions === undefined ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-gray-500">
+                      Loading transactions...
+                    </TableCell>
+                  </TableRow>
+                ) : currentData.length > 0 ? (
                   currentData.map((row) => (
-                    <TableRow key={row.id} className="hover:bg-gray-50 transition-colors">
-                      <TableCell className="font-medium">{row.transactionId}</TableCell>
-                      <TableCell>{row.date}</TableCell>
+                    <TableRow key={row._id} className="hover:bg-gray-50 transition-colors">
+                      <TableCell className="font-medium">
+                        {row._id.slice(-12).toUpperCase()}
+                      </TableCell>
+                      <TableCell>{format(row.createdAt, "MMM dd, yyyy")}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {row.type === "Top Up" ? (
+                          {row.type === "top_up" ? (
                             <ArrowDownLeft size={14} className="text-green-500" />
                           ) : (
                             <ArrowUpRight size={14} className="text-red-500" />
                           )}
-                          <span>{row.type}</span>
+                          <span className="capitalize">{row.type.replace("_", " ")}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <span
                           className={`font-medium ${
-                            row.type === "Top Up" ? "text-green-600" : "text-red-600"
+                            row.type === "top_up" ? "text-green-600" : "text-red-600"
                           }`}
                         >
-                          {row.type === "Top Up" ? "+" : "-"}${row.amount.toFixed(2)}
+                          {row.type === "top_up" ? "+" : "-"}${row.amount.toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            row.status === "Success"
+                            row.status === "success"
                               ? "bg-green-100 text-green-700"
-                              : row.status === "Pending"
+                              : row.status === "pending"
                                 ? "bg-yellow-100 text-yellow-700"
                                 : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {row.status}
+                          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                         </span>
                       </TableCell>
                     </TableRow>

@@ -5,22 +5,88 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreditCard, Wallet } from "lucide-react";
 
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useApp } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
+
 interface TopUpModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
-  const [amount, setAmount] = useState("");
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (config: {
+        key: string;
+        email?: string;
+        amount?: number;
+        currency?: string;
+        reference?: string;
+        access_code?: string;
+        metadata?: unknown;
+        callback: (...args: unknown[]) => unknown;
+        onClose: (...args: unknown[]) => unknown;
+        onError?: (...args: unknown[]) => unknown;
+      }) => {
+        openIframe: () => void;
+      };
+    };
+  }
+}
 
-  const handleTopUp = (e: React.FormEvent) => {
+export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
+  const { member } = useApp();
+  const [amount, setAmount] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const initializeTransaction = useAction(api.payments.initializeTransaction);
+
+  const handleTopUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Topping up account balance by", amount);
-    onClose();
+    if (!amount || isNaN(Number(amount))) return;
+    if (!member?.id || !member?.companyId) {
+      toast.error("User session not found.");
+      return;
+    }
+
+    if (!window.PaystackPop) {
+      toast.error("Payment gateway is still loading. Please try again in a few seconds.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      // 1. Initialize on Backend
+      const { authorization_url } = await initializeTransaction({
+        amount: Number(amount),
+        email: member.email || "user@example.com",
+        companyId: member.companyId as Id<"companies">,
+        userId: member.id as Id<"users">,
+        callback_url: window.location.origin + "/dashboard/billing",
+      });
+
+      // 2. Redirect to Paystack Checkout Flow
+      // This is 100% reliable and avoids Inline JS library conflicts.
+      // The actual balance update is handled securely by our backend Webhook.
+      if (authorization_url) {
+        toast.info("Redirecting to Paystack checkout...");
+        window.location.href = authorization_url;
+      } else {
+        throw new Error("Could not generate checkout URL.");
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Could not initialize Paystack.";
+      setIsSubmitting(false);
+      toast.error(errorMessage);
+      console.error(error);
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -46,6 +112,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
                   placeholder="50.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  disabled={isSubmitting}
                   required
                 />
               </div>
@@ -59,6 +126,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
                   variant="outline"
                   className={amount === preset.toString() ? "border-primary text-primary" : ""}
                   onClick={() => setAmount(preset.toString())}
+                  disabled={isSubmitting}
                 >
                   ${preset}
                 </Button>
@@ -67,11 +135,17 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
           </div>
           
           <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row gap-2">
-            <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
+              className="w-full sm:w-auto"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:w-auto gap-2">
-              <CreditCard className="w-4 h-4" /> Pay Now
+            <Button type="submit" className="w-full sm:w-auto gap-2" disabled={isSubmitting}>
+              <CreditCard className="w-4 h-4" /> {isSubmitting ? "Processing..." : "Pay Now"}
             </Button>
           </DialogFooter>
         </form>

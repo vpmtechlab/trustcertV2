@@ -1,6 +1,6 @@
 import { query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 import { MutationCtx } from "./_generated/server";
 
 /**
@@ -98,7 +98,7 @@ export const getGlobalAuditLogs = query({
  */
 export async function recordNotification(ctx: MutationCtx, args: {
   companyId: Id<"companies">;
-  userId?: Id<"users">;
+  userId: Id<"users">;
   title: string;
   message: string;
   type?: "info" | "success" | "warning" | "error";
@@ -115,29 +115,29 @@ export async function recordNotification(ctx: MutationCtx, args: {
 }
 
 /**
- * Fetch notifications for a company.
+ * Fetch notifications for a specific user.
  */
-export const getActiveNotificationsByCompany = query({
-  args: { companyId: v.id("companies") },
+export const getActiveNotificationsByUser = query({
+  args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("notifications")
-      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .order("desc")
       .take(50);
   },
 });
 
 /**
- * Mark all notifications as read for a company.
+ * Mark all notifications as read for a specific user.
  */
 import { mutation } from "./_generated/server";
 export const clearNotifications = mutation({
-  args: { companyId: v.id("companies") },
+  args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const notifications = await ctx.db
       .query("notifications")
-      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .filter((q) => q.eq(q.field("isRead"), false))
       .collect();
 
@@ -147,3 +147,58 @@ export const clearNotifications = mutation({
   },
 });
 
+/**
+ * Mark a single notification as read.
+ */
+export const markAsRead = mutation({
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.notificationId, { isRead: true });
+  },
+});
+
+/**
+ * Internal helper to notify multiple users in a company.
+ * Useful for broadcasting company-wide events with personalized messages.
+ */
+export async function notifyCompanyUsers(ctx: MutationCtx, args: {
+  companyId: Id<"companies">;
+  title: string;
+  type?: "info" | "success" | "warning" | "error";
+  excludeUserId?: Id<"users">;
+  getMessage: (user: Doc<"users">) => string;
+}) {
+  const users = await ctx.db
+    .query("users")
+    .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+    .collect();
+
+  for (const user of users) {
+    if (args.excludeUserId && user._id === args.excludeUserId) continue;
+    
+    await recordNotification(ctx, {
+      companyId: args.companyId,
+      userId: user._id,
+      title: args.title,
+      message: args.getMessage(user),
+      type: args.type || "info",
+    });
+  }
+}
+
+/**
+ * Fetch recent login history for a specific user.
+ */
+export const getLoginHistoryByUser = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const logs = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("action"), "USER_LOGIN"))
+      .order("desc")
+      .take(10);
+
+    return logs;
+  },
+});

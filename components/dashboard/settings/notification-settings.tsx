@@ -1,11 +1,21 @@
-"use client";
-
-import React, { useState } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { AppContext } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export function NotificationSettings() {
+  const { member } = useContext(AppContext);
+  const preferredSettings = useQuery(api.users.getUserPreferences, 
+    member?.id ? { userId: member.id as Id<"users"> } : "skip"
+  );
+  const updatePreferences = useMutation(api.users.updateNotificationPreferences);
+
   const [settings, setSettings] = useState({
     emailNews: true,
     emailActivity: true,
@@ -15,9 +25,32 @@ export function NotificationSettings() {
     smsSecurity: true,
     marketing: false,
   });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (preferredSettings) {
+      setSettings((prev) => ({ ...prev, ...preferredSettings }));
+    }
+  }, [preferredSettings]);
 
   const handleToggle = (key: keyof typeof settings) => {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSave = async () => {
+    if (!member?.id) return;
+    setLoading(true);
+    try {
+      await updatePreferences({
+        userId: member.id as Id<"users">,
+        preferences: settings,
+      });
+      toast.success("Notification preferences saved!");
+    } catch {
+      toast.error("Failed to save preferences.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -110,7 +143,12 @@ export function NotificationSettings() {
       </div>
 
       <div className="pt-4 flex justify-end">
-        <Button className="bg-secondary hover:bg-gray-800 text-white w-full sm:w-auto">
+        <Button 
+          onClick={handleSave}
+          disabled={loading}
+          className="bg-secondary hover:bg-gray-800 text-white w-full sm:w-auto"
+        >
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Preferences
         </Button>
       </div>

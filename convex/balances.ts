@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { recordNotification } from "./audit";
+import { notifyCompanyUsers } from "./audit";
+import { Doc } from "./_generated/dataModel";
 
 /**
  * Fetch the available balance for a specific company.
@@ -18,15 +19,45 @@ export const getAvailableBalance = query({
 });
 
 /**
- * Add funds to a company balance (Simulated for Demo).
+ * Fetch the full balance document for a specific company.
+ */
+export const get = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, args) => {
+    const balance = await ctx.db
+      .query("balances")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .first();
+
+    return balance;
+  },
+});
+
+/**
+ * Add funds to a company balance.
  */
 export const addFunds = mutation({
   args: {
     companyId: v.id("companies"),
     userId: v.id("users"),
     amount: v.number(),
+    referenceId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // 0. Prevent double-spending if reference is provided
+    if (args.referenceId) {
+      const existing = await ctx.db
+        .query("transactions")
+        .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+        .filter((q) => q.eq(q.field("referenceId"), args.referenceId))
+        .first();
+      
+      if (existing) {
+        console.warn(`Duplicate transaction attempt: ${args.referenceId}`);
+        return false;
+      }
+    }
+
     const balance = await ctx.db
       .query("balances")
       .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
@@ -51,16 +82,20 @@ export const addFunds = mutation({
       type: "top_up",
       amount: args.amount,
       status: "success",
+      referenceId: args.referenceId,
       createdAt: Date.now(),
     });
 
-    // Record notification instead of audit log
-    await recordNotification(ctx, {
+    // Record personalized notifications for the performer and the rest of the company
+    const performer = await ctx.db.get(args.userId);
+    await notifyCompanyUsers(ctx, {
       companyId: args.companyId,
-      userId: args.userId,
       title: "Funds Added",
-      message: `Successfully added $${args.amount.toLocaleString()} to your available balance.`,
       type: "success",
+      getMessage: (user: Doc<"users">) => 
+        user._id === args.userId 
+          ? `Successfully added $${args.amount.toLocaleString()} to your available balance.`
+          : `${performer?.firstName || 'A team member'} added $${args.amount.toLocaleString()} to the company balance.`,
     });
 
     return true;
