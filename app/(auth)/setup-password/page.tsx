@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -12,7 +12,7 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
 import { useApp } from "@/components/providers/app-provider";
 
-export default function SetupPasswordPage() {
+function SetupPasswordForm() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const token = searchParams.get("token");
@@ -224,5 +224,20 @@ export default function SetupPasswordPage() {
 				</Button>
 			</div>
 		</div>
+	);
+}
+
+export default function SetupPasswordPage() {
+	return (
+		<Suspense 
+			fallback={
+				<div className="flex flex-col items-center justify-center min-h-screen gap-4">
+					<Loader2 className="w-10 h-10 animate-spin text-[#023e4a]" />
+					<p className="text-gray-500 font-medium">Initializing secure environment...</p>
+				</div>
+			}
+		>
+			<SetupPasswordForm />
+		</Suspense>
 	);
 }
