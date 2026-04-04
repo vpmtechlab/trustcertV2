@@ -45,7 +45,7 @@ export const sendWelcomeEmail = action({
             <p><strong>Temporary Password:</strong> <code style="background: #e0e0e0; padding: 2px 5px; border-radius: 3px;">${args.tempPassword}</code></p>
           </div>
           <p>For security reasons, you will be required to <strong>change your password</strong> upon your first login.</p>
-          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/${args.setupToken ? `setup-password?token=${args.setupToken}` : 'login'}" 
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://trustcert.vpmtechlab.com'}/${args.setupToken ? `setup-password?token=${args.setupToken}` : 'login'}" 
              style="display: inline-block; background: #023e4a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
             ${args.setupToken ? 'Set Up Your Account' : 'Login to TrustCert'}
           </a>
