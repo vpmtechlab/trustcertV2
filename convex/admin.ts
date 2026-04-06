@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { recordAuditLog } from "./audit";
 
 /**
@@ -88,22 +89,28 @@ export const getAllUsers = query({
 });
 
 export const getAllJobs = query({
-  args: {},
-  handler: async (ctx) => {
-    const jobs = await ctx.db.query("jobs").order("desc").take(100); // Limit to recent 100 for now
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const jobs = await ctx.db
+      .query("jobs")
+      .order("desc")
+      .paginate(args.paginationOpts);
     
     // Enrich with company and user names
-    return await Promise.all(
-      jobs.map(async (job) => {
-        const company = await ctx.db.get(job.companyId);
-        const user = await ctx.db.get(job.userId);
-        return {
-          ...job,
-          companyName: company?.name || "Unknown",
-          userName: `${user?.firstName} ${user?.surname}` || "Unknown",
-        };
-      })
-    );
+    return {
+      ...jobs,
+      page: await Promise.all(
+        jobs.page.map(async (job) => {
+          const company = await ctx.db.get(job.companyId);
+          const user = await ctx.db.get(job.userId);
+          return {
+            ...job,
+            companyName: company?.name || "Unknown",
+            userName: `${user?.firstName} ${user?.surname}` || "Unknown",
+          };
+        })
+      ),
+    };
   },
 });
 

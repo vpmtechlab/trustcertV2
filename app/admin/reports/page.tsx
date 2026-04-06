@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Loader2, Download, Filter, Calendar, Activity, ArrowUpRight } from "lucide-react";
 import {
@@ -28,8 +28,12 @@ export default function ReportsAdminPage() {
   const [dateRange, setDateRange] = useState("30");
   const [isExporting, setIsExporting] = useState(false);
 
-  // 1. Fetch Global Jobs for the table
-  const jobs = useQuery(api.admin.getAllJobs);
+  // 1. Fetch Global Jobs for the table with pagination
+  const { results: jobs, status, loadMore } = usePaginatedQuery(
+    api.admin.getAllJobs,
+    {},
+    { initialNumItems: 10 }
+  );
   
   // 2. Fetch Global Analytics for the charts
   const analytics = useQuery(api.admin.getAdminDashboardAnalytics, { 
@@ -120,7 +124,7 @@ export default function ReportsAdminPage() {
                  Recent Platform Activity
                  <ArrowUpRight size={16} className="text-gray-300" />
               </h2>
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Live Feed • Last 100 Hits</p>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Live Feed • Paginated Access</p>
            </div>
            <Button variant="ghost" className="text-xs font-bold text-primary hover:bg-primary/5 uppercase tracking-widest px-4">
               View Audit Log
@@ -167,7 +171,7 @@ export default function ReportsAdminPage() {
                 </tr>
               ))}
               
-              {jobs.length === 0 && (
+              {jobs.length === 0 && status !== "LoadingMore" && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-20">
                     <div className="flex flex-col items-center gap-3 opacity-20">
@@ -179,6 +183,26 @@ export default function ReportsAdminPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="px-8 py-6 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
+           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              {status === "LoadingMore" ? "Fetching more entries..." : 
+               status === "Exhausted" ? "End of platform history" : 
+               `Showing latest ${jobs.length} transactions`}
+           </p>
+           
+           {status !== "Exhausted" && (
+             <Button
+               onClick={() => loadMore(10)}
+               disabled={status === "LoadingMore"}
+               variant="outline"
+               className="text-xs font-black uppercase tracking-widest px-8 rounded-xl border-gray-200 hover:border-primary hover:text-primary transition-all disabled:opacity-50"
+             >
+               {status === "LoadingMore" ? "Loading..." : "Load More Activity"}
+             </Button>
+           )}
         </div>
       </div>
     </div>

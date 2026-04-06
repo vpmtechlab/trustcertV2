@@ -1,23 +1,25 @@
 "use client";
 
 import { useContext } from "react";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AuditFeed } from "@/components/shared/audit-feed";
 import { ShieldCheck, ArrowUpRight, Search } from "lucide-react";
 import { AppContext } from "@/components/providers/app-provider";
 import { Id } from "@/convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
 
 export default function AuditDashboardPage() {
 	// 1. Get user context
 	const { member } = useContext(AppContext);
 
-	// 2. Fetch logs for the organization
-	const rawLogs = useQuery(
+	// 2. Fetch logs for the organization with pagination
+	const { results: rawLogs, status, loadMore } = usePaginatedQuery(
 		api.audit.getAuditLogsByCompany,
 		member?.companyId
 			? { companyId: member.companyId as Id<"companies"> }
 			: "skip",
+		{ initialNumItems: 10 }
 	);
 
 	// 3. Filter for verification-only logs
@@ -63,8 +65,28 @@ export default function AuditDashboardPage() {
 			</div>
 
 			{/* Audit Feed */}
-			<div className="bg-linear-to-b from-gray-50/50 to-transparent p-0 lg:p-4 rounded-[3rem]">
+			<div className="bg-linear-to-b from-gray-50/50 to-transparent p-0 lg:p-4 rounded-[3rem] space-y-8">
 				<AuditFeed logs={logs} title="Activity History" showCompany={false} />
+
+				{/* Pagination Controls */}
+				{status !== "Exhausted" && (
+					<div className="flex justify-center pb-6">
+						<Button
+							onClick={() => loadMore(10)}
+							disabled={status === "LoadingMore"}
+							variant="outline"
+							className="rounded-2xl px-8 py-5 font-black uppercase tracking-widest text-[10px] border-gray-200 hover:border-primary hover:text-primary transition-all disabled:opacity-50"
+						>
+							{status === "LoadingMore" ? "Loading History..." : "Load Older Records"}
+						</Button>
+					</div>
+				)}
+
+				{status === "Exhausted" && logs && logs.length > 0 && (
+					<p className="text-center text-[10px] font-black text-gray-300 uppercase tracking-widest pb-6">
+						End of Activity Log
+					</p>
+				)}
 			</div>
 
 			{/* Legal Footer */}
