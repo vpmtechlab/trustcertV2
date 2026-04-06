@@ -80,6 +80,18 @@ export const deductBalance = mutation({
   },
 });
 
+export const getCompanyBalance = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, args) => {
+    const balanceRecord = await ctx.db
+      .query("balances")
+      .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
+      .first();
+
+    return balanceRecord?.availableBalance ?? 0;
+  },
+});
+
 export const createCompanyAndUser = mutation({
   args: {
     companyName: v.string(),
