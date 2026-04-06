@@ -66,3 +66,59 @@ export const sendWelcomeEmail = action({
     }
   },
 });
+
+export const sendOTPEmail = action({
+  args: {
+    email: v.string(),
+    firstName: v.string(),
+    otpCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASSWORD;
+
+    if (!emailUser || !emailPass) {
+      console.error("Email credentials NOT found in environment variables.");
+      console.log(`[MOCK OTP EMAIL] To: ${args.email}, OTP: ${args.otpCode}`);
+      return { sent: false, error: "Email credentials missing" };
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.zoho.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: emailUser,
+        pass: emailPass,
+      },
+    });
+
+    const mailOptions = {
+      from: `"TrustCert Team" <${emailUser}>`,
+      to: args.email,
+      subject: "Your TrustCert Verification Code",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #023e4a;">Verify Your Account, ${args.firstName}!</h2>
+          <p>Thank you for starting your registration with TrustCert. Please use the following code to verify your email address:</p>
+          <div style="background: #f4f4f4; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
+            <p style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #023e4a; margin: 0;">${args.otpCode}</p>
+          </div>
+          <p>This code will expire in 15 minutes. If you did not request this code, please ignore this email.</p>
+          <p style="margin-top: 30px; font-size: 0.8em; color: #777;">
+            &copy; ${new Date().getFullYear()} TrustCert Compliance. All rights reserved.
+          </p>
+        </div>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`OTP email sent to ${args.email}`);
+      return { sent: true };
+    } catch (error) {
+      console.error("Failed to send OTP email:", error);
+      return { sent: false, error: error instanceof Error ? error.message : "Unknown error" };
+    }
+  },
+});

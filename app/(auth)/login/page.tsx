@@ -9,7 +9,7 @@ export default function LoginPage() {
   const [view, setView] = useState<"login" | "register">("login");
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 max-md:h-fit">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4 justify-center">
         <div className="relative w-8 h-8 flex items-center justify-center bg-teal-50 rounded-lg">

@@ -18,7 +18,7 @@ export default function AuthLayout({
 	];
 
 	return (
-		<div className="min-h-screen w-full flex items-center justify-center p-4 lg:p-8 font-sans overflow-hidden relative">
+		<div className="min-h-screen max-md:h-fit w-full flex items-center justify-center p-4 lg:p-8 font-sans overflow-hidden relative">
 			{/* Main Background with Greenish Bluish Gradient and Blur */}
 			<div className="absolute inset-0 bg-linear-to-br from-[#0a192f] via-[#0f2e2e] to-[#0a142f] z-0" />
 			<div className="absolute inset-0 bg-teal-900/20 backdrop-blur-3xl z-0 pointer-events-none" />

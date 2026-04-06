@@ -230,8 +230,8 @@ export default function JobViewPage() {
   // Not found
   if (job === null) {
     return (
-      <div className="p-8">
-        <div className="text-center py-16 bg-gradient-to-br flex flex-col items-center from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
+      <div className="p-2">
+        <div className="text-center py-16 bg-linear-to-br flex flex-col items-center from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <XCircle className="w-8 h-8 text-red-500" />
           </div>
@@ -268,7 +268,7 @@ export default function JobViewPage() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl">
+    <div className="p-2 space-y-6 max-w-6xl">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
         <Link
@@ -283,7 +283,7 @@ export default function JobViewPage() {
       </div>
 
       {/* Header Card */}
-      <div className={`bg-gradient-to-r ${statusInfo.banner} rounded-2xl p-6 border`}>
+      <div className={`bg-linear-to-r ${statusInfo.banner} rounded-2xl p-2 border`}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <div className={`w-14 h-14 ${statusInfo.bg} ${statusInfo.ring} ring-4 rounded-xl flex items-center justify-center shadow-lg`}>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,21 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Mail, ShieldCheck, Lock } from "lucide-react";
+import {
+	InputOTP,
+	InputOTPGroup,
+	InputOTPSlot,
+} from "@/components/ui/input-otp";
 
 export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 	const router = useRouter();
-	const createCompanyAndUser = useMutation(api.users.createCompanyAndUser);
+	
+	// Mutations & Actions
+	const startRegistration = useMutation(api.users.startRegistration);
+	const verifyOTP = useMutation(api.users.verifyOTP);
+	const completeRegistration = useMutation(api.users.completeRegistration);
+	const sendOTPEmail = useAction(api.emails.sendOTPEmail);
 
 	const [step, setStep] = useState(1);
 	const [isLoading, setIsLoading] = useState(false);
@@ -26,20 +36,27 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 	const [location, setLocation] = useState("");
 	const [domain, setDomain] = useState("");
 
-	// Step 2: Admin Info
+	// Step 2: Admin Profile
 	const [firstName, setFirstName] = useState("");
 	const [surname, setSurname] = useState("");
 	const [email, setEmail] = useState("");
+
+	// Step 3: OTP
+	const [otpCode, setOtpCode] = useState("");
+
+	// Step 4: Security
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [agreeTerms, setAgreeTerms] = useState<boolean | string>(false);
 
+	// Password strength helpers
 	const hasLength = password.length >= 8;
 	const hasUpperCase = /[A-Z]/.test(password);
 	const hasLowerCase = /[a-z]/.test(password);
 	const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(password);
 
-	const handleNext = (e: React.FormEvent) => {
+	// Step 1 -> Step 2
+	const handleNextToAdmin = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (companyName && regNumber && country && location && domain) {
 			setStep(2);
@@ -48,32 +65,26 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 		}
 	};
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	// Step 2 -> Step 3 (Trigger OTP)
+	const handleTriggerOTP = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!firstName || !surname || !email || !password || !confirmPassword || !agreeTerms) {
-			toast.error(
-				"Please fill in all personal details and agree to the terms.",
-			);
+		if (!firstName || !surname || !email) {
+			toast.error("Please provide your name and work email.");
 			return;
 		}
 
-		if (password !== confirmPassword) {
-			toast.error("Passwords do not match.");
-			return;
-		}
-
-		const hasUpperCase = /[A-Z]/.test(password);
-		const hasLowerCase = /[a-z]/.test(password);
-		const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(password);
-		
-		if (password.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
-			toast.error("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
+		// Check for personal email
+		const personalDomains = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "msn.com", "icloud.com", "me.com", "aol.com", "mail.com", "protonmail.com", "zoho.com", "yandex.com"];
+		const domain = email.split("@")[1]?.toLowerCase();
+		if (personalDomains.includes(domain)) {
+			toast.error("Please use a work email address. Personal emails (e.g. Gmail, Yahoo) are not permitted.");
 			return;
 		}
 
 		setIsLoading(true);
 		try {
-			const res = await createCompanyAndUser({
+			// 1. Create verification record & generate code
+			const result = await startRegistration({
 				companyName,
 				regNumber,
 				country,
@@ -82,41 +93,97 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 				firstName,
 				surname,
 				email,
+			});
+
+			if (result.success) {
+				// 2. Send email via action
+				await sendOTPEmail({
+					email,
+					firstName,
+					otpCode: result.otpCode,
+				});
+				
+				toast.success("Verification code sent to your email!");
+				setStep(3);
+			}
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : "Registration failed.";
+			toast.error(errorMessage);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	// Step 3 -> Step 4 (Verify OTP)
+	const handleVerifyOTP = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!otpCode || otpCode.length < 6) {
+			toast.error("Please enter the 6-digit code.");
+			return;
+		}
+
+		setIsLoading(true);
+		try {
+			await verifyOTP({ email, code: otpCode });
+			toast.success("Email verified successfully!");
+			setStep(4);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : "Verification failed.";
+			toast.error(errorMessage);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	// Final Submission
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!password || !confirmPassword || !agreeTerms) {
+			toast.error("Please set your password and agree to the terms.");
+			return;
+		}
+
+		if (password !== confirmPassword) {
+			toast.error("Passwords do not match.");
+			return;
+		}
+
+		if (!hasLength || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+			toast.error("Password does not meet security requirements.");
+			return;
+		}
+
+		setIsLoading(true);
+		try {
+			await completeRegistration({
+				email,
+				code: otpCode,
 				password,
 			});
 
-			console.log(res);
 			toast.success("Account created successfully! Welcome to TrustCert.");
 			
-			// Clear form state
-			setCompanyName("");
-			setRegNumber("");
-			setCountry("");
-			setLocation("");
-			setDomain("");
-			setFirstName("");
-			setSurname("");
-			setEmail("");
-			setPassword("");
-			setConfirmPassword("");
-			setAgreeTerms(false);
-			setStep(1);
+			// Clear state
+			resetForm();
 
-			// Trigger sign-in tab switch or redirect
 			if (onSuccess) {
 				onSuccess();
 			} else {
 				router.push("/login");
 			}
 		} catch (error) {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Failed to create account. Please try again.";
+			const errorMessage = error instanceof Error ? error.message : "Completion failed.";
 			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
 		}
+	};
+
+	const resetForm = () => {
+		setCompanyName(""); setRegNumber(""); setCountry(""); setLocation(""); setDomain("");
+		setFirstName(""); setSurname(""); setEmail(""); setOtpCode("");
+		setPassword(""); setConfirmPassword(""); setAgreeTerms(false);
+		setStep(1);
 	};
 
 	return (
@@ -125,31 +192,26 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 			<div className="flex items-center justify-between mb-8 px-2 relative">
 				<div className="absolute top-1/2 left-0 right-0 h-[2px] bg-gray-100 -z-10 -translate-y-1/2 rounded" />
 				<div className="flex flex-col items-center">
-					<div
-						className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${step >= 1 ? "bg-[#023e4a] text-white" : "bg-gray-100 text-gray-400"}`}
-					>
-						1
-					</div>
-					<span className="text-xs text-center mt-2 font-medium text-gray-600">
-						Company
-					</span>
+					<div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${step >= 1 ? "bg-[#023e4a] text-white" : "bg-gray-100 text-gray-400"}`}>1</div>
+					<span className="text-[10px] text-center mt-2 font-medium text-gray-600">Company</span>
 				</div>
 				<div className="flex flex-col items-center">
-					<div
-						className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${step >= 2 ? "bg-[#023e4a] text-white" : "bg-gray-100 text-gray-400"}`}
-					>
-						2
-					</div>
-					<span className="text-xs text-center mt-2 font-medium text-gray-600">
-						Admin
-					</span>
+					<div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${step >= 2 ? "bg-[#023e4a] text-white" : "bg-gray-100 text-gray-400"}`}>2</div>
+					<span className="text-[10px] text-center mt-2 font-medium text-gray-600">Profile</span>
+				</div>
+				<div className="flex flex-col items-center">
+					<div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${step >= 3 ? "bg-[#023e4a] text-white" : "bg-gray-100 text-gray-400"}`}>3</div>
+					<span className="text-[10px] text-center mt-2 font-medium text-gray-600">Verify</span>
+				</div>
+				<div className="flex flex-col items-center">
+					<div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${step >= 4 ? "bg-[#023e4a] text-white" : "bg-gray-100 text-gray-400"}`}>4</div>
+					<span className="text-[10px] text-center mt-2 font-medium text-gray-600">Security</span>
 				</div>
 			</div>
 
-			{step === 1 ? (
-				<div
-					className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300"
-				>
+			{/* Step 1: Company Info */}
+			{step === 1 && (
+				<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
 					<div className="space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="companyName">Company Name</Label>
@@ -158,11 +220,9 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 								value={companyName}
 								onChange={(e) => setCompanyName(e.target.value)}
 								placeholder="Acme Corporation Ltd"
-								required
-								className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
+								className="bg-gray-50 border-gray-200"
 							/>
 						</div>
-
 						<div className="space-y-2">
 							<Label htmlFor="regNumber">Registration Number</Label>
 							<Input
@@ -170,182 +230,127 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 								value={regNumber}
 								onChange={(e) => setRegNumber(e.target.value)}
 								placeholder="BN-1234567"
-								required
-								className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
+								className="bg-gray-50 border-gray-200"
 							/>
 						</div>
-
 						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label htmlFor="country">Country</Label>
-								<Input
-									id="country"
-									value={country}
-									onChange={(e) => setCountry(e.target.value)}
-									placeholder="Kenya"
-									required
-									className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-								/>
+								<Input id="country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Kenya" className="bg-gray-50 border-gray-200" />
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="location">City / Location</Label>
-								<Input
-									id="location"
-									value={location}
-									onChange={(e) => setLocation(e.target.value)}
-									placeholder="Nairobi"
-									required
-									className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-								/>
+								<Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Nairobi" className="bg-gray-50 border-gray-200" />
 							</div>
 						</div>
-
 						<div className="space-y-2">
 							<Label htmlFor="domain">Company Domain</Label>
-							<Input
-								id="domain"
-								value={domain}
-								onChange={(e) => setDomain(e.target.value)}
-								placeholder="acme.com"
-								required
-								className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-							/>
+							<Input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="acme.com" className="bg-gray-50 border-gray-200" />
 						</div>
 					</div>
-
-					<Button
-						onClick={handleNext}
-						size="lg"
-						variant="secondary"
-						className="w-full mt-6 transition-colors text-white font-semibold shadow-lg text-sm gap-2"
-					>
-						Continue to Admin Profile <ArrowRight size={16} />
+					<Button onClick={handleNextToAdmin} variant="secondary" className="w-full mt-6 text-white font-semibold shadow-lg gap-2">
+						Continue to Profile <ArrowRight size={16} />
 					</Button>
 				</div>
-			) : (
-				<form
-					onSubmit={handleSubmit}
-					className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300"
-				>
-					<Button
-						type="button"
-						variant="ghost"
-						onClick={() => setStep(1)}
-						className="p-0 h-auto text-gray-500 hover:text-gray-900 hover:bg-transparent mb-2 gap-1"
-					>
-						<ArrowLeft size={14} /> Back to Company Info
-					</Button>
+			)}
 
+			{/* Step 2: Admin Profile */}
+			{step === 2 && (
+				<div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+					<button onClick={() => setStep(1)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-2">
+						<ArrowLeft size={14} /> Back to Company
+					</button>
 					<div className="space-y-4">
 						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label htmlFor="firstName">First Name</Label>
-								<Input
-									id="firstName"
-									value={firstName}
-									onChange={(e) => setFirstName(e.target.value)}
-									placeholder="John"
-									required
-									className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-								/>
+								<Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" className="bg-gray-50 border-gray-200" />
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="surname">Surname</Label>
-								<Input
-									id="surname"
-									value={surname}
-									onChange={(e) => setSurname(e.target.value)}
-									placeholder="Doe"
-									required
-									className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-								/>
+								<Input id="surname" value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="Doe" className="bg-gray-50 border-gray-200" />
 							</div>
 						</div>
-
 						<div className="space-y-2">
 							<Label htmlFor="email">Work Email</Label>
-							<Input
-								id="email"
-								type="email"
-								value={email}
-								onChange={(e) => setEmail(e.target.value)}
-								placeholder="john@acme.com"
-								required
-								className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-							/>
+							<div className="relative">
+								<Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+								<Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@company.com" className="bg-gray-50 border-gray-200 pl-9" />
+							</div>
 						</div>
+					</div>
+					<Button onClick={handleTriggerOTP} disabled={isLoading} variant="secondary" className="w-full mt-6 text-white font-semibold shadow-lg gap-2">
+						{isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Verification Code"}
+					</Button>
+				</div>
+			)}
 
+			{/* Step 3: OTP Verification */}
+			{step === 3 && (
+				<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+					<div className="text-center space-y-2">
+						<div className="p-3 bg-teal-50 rounded-full text-teal-600 inline-block">
+							<ShieldCheck size={32} />
+						</div>
+						<h3 className="text-lg font-bold text-gray-900">Confirm Your Email</h3>
+						<p className="text-sm text-gray-500">We&apos;ve sent a 6-digit code to <span className="font-semibold text-gray-900">{email}</span></p>
+					</div>
+
+					<div className="space-y-4 flex flex-col items-center">
+						<InputOTP maxLength={6} value={otpCode} onChange={(val) => setOtpCode(val)}>
+							<InputOTPGroup>
+								<InputOTPSlot index={0} />
+								<InputOTPSlot index={1} />
+								<InputOTPSlot index={2} />
+								<InputOTPSlot index={3} />
+								<InputOTPSlot index={4} />
+								<InputOTPSlot index={5} />
+							</InputOTPGroup>
+						</InputOTP>
+						<Button onClick={handleVerifyOTP} disabled={isLoading || otpCode.length < 6} variant="secondary" className="w-full mt-2 text-white font-semibold shadow-lg">
+							{isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify Code"}
+						</Button>
+						<button onClick={handleTriggerOTP} className="text-sm text-[#023e4a] hover:underline transition-colors mt-2">
+							Didn&apos;t receive a code? Resend
+						</button>
+					</div>
+				</div>
+			)}
+
+			{/* Step 4: Security (Password) */}
+			{step === 4 && (
+				<form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+					<div className="text-center space-y-2 mb-4">
+						<div className="p-3 bg-teal-50 rounded-full text-teal-600 inline-block">
+							<Lock size={32} />
+						</div>
+						<h3 className="text-lg font-bold text-gray-900">Secure Your Account</h3>
+					</div>
+					<div className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="password">Password</Label>
-							<PasswordInput
-								id="password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								placeholder="Create a secure password"
-								required
-								className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-							/>
+							<Label htmlFor="password">Create Password</Label>
+							<PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="bg-gray-50 border-gray-200" />
 							{password.length > 0 && (
-								<div className="flex flex-col gap-1 mt-1 text-xs">
-									<span className={hasLength ? "text-green-600 font-medium" : "text-gray-400"}>
-										{hasLength ? "✓" : "○"} At least 8 characters
-									</span>
-									<span className={hasUpperCase && hasLowerCase ? "text-green-600 font-medium" : "text-gray-400"}>
-										{hasUpperCase && hasLowerCase ? "✓" : "○"} Uppercase & lowercase letters
-									</span>
-									<span className={hasSpecialChar ? "text-green-600 font-medium" : "text-gray-400"}>
-										{hasSpecialChar ? "✓" : "○"} Special character (!@#$)
-									</span>
+								<div className="flex flex-col gap-1 mt-1 text-[10px]">
+									<span className={hasLength ? "text-green-600 font-medium" : "text-gray-400"}>{hasLength ? "✓" : "○"} 8+ Characters</span>
+									<span className={hasUpperCase && hasLowerCase ? "text-green-600 font-medium" : "text-gray-400"}>{hasUpperCase && hasLowerCase ? "✓" : "○"} Case Mix</span>
+									<span className={hasSpecialChar ? "text-green-600 font-medium" : "text-gray-400"}>{hasSpecialChar ? "✓" : "○"} Special Char</span>
 								</div>
 							)}
 						</div>
-
 						<div className="space-y-2">
 							<Label htmlFor="confirmPassword">Confirm Password</Label>
-							<PasswordInput
-								id="confirmPassword"
-								value={confirmPassword}
-								onChange={(e) => setConfirmPassword(e.target.value)}
-								placeholder="Confirm your password"
-								required
-								className="bg-gray-50 border-gray-200 focus:border-[#023e4a] focus:ring-[#023e4a]/20"
-							/>
+							<PasswordInput id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" className="bg-gray-50 border-gray-200" />
+						</div>
+						<div className="flex items-center space-x-2 pt-2">
+							<Checkbox id="terms" checked={!!agreeTerms} onCheckedChange={setAgreeTerms} />
+							<Label htmlFor="terms" className="text-gray-600 text-[10px] font-normal leading-none">
+								I agree to the <a href="#" className="text-[#023e4a] hover:underline">Terms & Privacy Policy</a>
+							</Label>
 						</div>
 					</div>
-
-					<div className="flex items-center space-x-2 pt-2">
-						<Checkbox
-							id="terms"
-							checked={!!agreeTerms}
-							onCheckedChange={(checked) => setAgreeTerms(checked)}
-						/>
-						<Label
-							htmlFor="terms"
-							className="text-gray-600 text-xs font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-						>
-							I agree to the{" "}
-							<a href="#" className="text-[#023e4a] hover:underline">
-								Terms
-							</a>{" "}
-							&{" "}
-							<a href="#" className="text-[#023e4a] hover:underline">
-								Policy
-							</a>
-						</Label>
-					</div>
-
-					<Button
-						type="submit"
-						disabled={!agreeTerms || isLoading}
-						className="w-full mt-6 transition-colors text-white font-semibold shadow-lg text-sm gap-2"
-					>
-						{isLoading ? (
-							<>
-								<Loader2 className="w-4 h-4 animate-spin" /> Creating Account...
-							</>
-						) : (
-							"Complete Registration"
-						)}
+					<Button type="submit" disabled={!agreeTerms || isLoading} variant="secondary" className="w-full mt-6 text-white font-semibold shadow-lg gap-2">
+						{isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete Registration"}
 					</Button>
 				</form>
 			)}

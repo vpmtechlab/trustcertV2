@@ -13,9 +13,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { ServiceType, ServiceAction } from "./choose-service";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Loader2, Info } from "lucide-react";
+import { useApp } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
 
 const countries = [
 	{ code: "KE", name: "Kenya", flag: "🇰🇪" },
@@ -50,9 +52,8 @@ export function FillDetails({
 		lastName: "",
 	});
 	const [isLoading, setIsLoading] = useState(false);
-
+	const { member, setShowTopUp } = useApp();
 	const runVerification = useAction(api.verifications.runVerification);
-	const seedMockData = useMutation(api.init.seedMockData);
 
 	// Dynamically fetch check types from Convex using the service slug
 	const categoryData = useQuery(api.services.getBySlug, { slug: service.slug });
@@ -64,22 +65,25 @@ export function FillDetails({
 	);
 
 	const handleSubmit = async () => {
+		if (!member?.companyId || !member?.id) {
+			toast.error("User session not found. Please log in again.");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
-			// 1. Ensure test user and company exist (for dev simulation)
-			const { companyId, userId } = await seedMockData();
-
-			// 2. Call the Convex action to deduct balance, create job, and simulate response
+			// 1. Call the Convex action to deduct balance, create job, and simulate response
+			// Note: We no longer call seedMockData() here, as it was associate verifications with the wrong company.
 			const result = await runVerification({
-				companyId,
-				userId,
+				companyId: member.companyId as Id<"companies">,
+				userId: member.id as Id<"users">,
 				serviceType: formData.serviceType || service.slug,
 				entityData: formData,
 				source: "web_api",
 			});
 
 			toast.success("Verification completed successfully!");
-			// 3. Delegate to parent component
+			// 2. Delegate to parent component
 			onSubmit({
 				...formData,
 				jobId: result.jobId,
@@ -88,7 +92,14 @@ export function FillDetails({
 		} catch (error: unknown) {
 			const message =
 				error instanceof Error ? error.message : "Failed to run verification";
-			toast.error(message);
+			
+			// Detect insufficient funds to show top-up modal
+			if (message.toLowerCase().includes("insufficient balance") || message.toLowerCase().includes("funds")) {
+				toast.error("Insufficient funds! Please top up to proceed.");
+				setShowTopUp(true);
+			} else {
+				toast.error(message);
+			}
 		} finally {
 			setIsLoading(false);
 		}

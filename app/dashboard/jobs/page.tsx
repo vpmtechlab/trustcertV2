@@ -17,23 +17,23 @@ import {
 } from "@/components/ui/table";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useApp } from "@/components/providers/app-provider";
+import { Id } from "@/convex/_generated/dataModel";
 
 export default function JobListPage() {
   const router = useRouter();
+  const { member } = useApp();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const itemsPerPage = 10;
 
-  // 1. Get the company context (VPMTechLab by default for POC)
-  const company = useQuery(api.companies.getDefaultCompany);
-
-  // 2. Fetch real data from Convex
+  // 1. Fetch real data from Convex
   const jobs = useQuery(api.verifications.getVerificationsByCompany,
-    company?._id ? { companyId: company._id } : "skip"
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
   );
 
   const stats = useQuery(api.verifications.getJobStats,
-    company?._id ? { companyId: company._id } : "skip"
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
   );
 
   const handleRowClick = (jobId: string) => {
@@ -81,7 +81,7 @@ export default function JobListPage() {
     currentPage * itemsPerPage
   );
 
-  if (jobs === undefined || company === undefined) {
+  if (jobs === undefined || member === undefined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -91,7 +91,7 @@ export default function JobListPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-5">
+    <div className="flex flex-col gap-6 p-2">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Job List</h1>

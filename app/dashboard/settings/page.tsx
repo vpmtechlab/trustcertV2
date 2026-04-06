@@ -19,7 +19,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 p-5 w-full lg:w-4/5">
+    <div className="flex flex-col gap-6 p-2 w-full lg:w-4/5">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
         <p className="text-gray-500 mt-1">Manage your profile, security, and preferences.</p>

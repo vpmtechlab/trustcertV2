@@ -51,6 +51,35 @@ export default function InviteUserModal({
 			return;
 		}
 
+		if (!email || !firstName || !surname) {
+			toast.error("Please fill in all details.");
+			return;
+		}
+
+		// Check for personal email
+		const personalDomains = [
+			"gmail.com",
+			"yahoo.com",
+			"hotmail.com",
+			"outlook.com",
+			"live.com",
+			"msn.com",
+			"icloud.com",
+			"me.com",
+			"aol.com",
+			"mail.com",
+			"protonmail.com",
+			"zoho.com",
+			"yandex.com",
+		];
+		const domain = email.split("@")[1]?.toLowerCase();
+		if (personalDomains.includes(domain)) {
+			toast.error(
+				"Please use a work email address. Personal emails (e.g. Gmail, Yahoo) are not permitted.",
+			);
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			// 1. Create user in DB
