@@ -24,33 +24,28 @@ const languages = [
 ];
 
 const codeSamples: Record<string, string> = {
-	curl: `curl -X POST https://trustcert-api.convex.site/v1/verifications \\
+	curl: `curl -X POST https://pleasant-sparrow-60.convex.site/v1/verifications \\
   -H "X-API-KEY: your_api_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "type": "enhanced_kyc",
+    "type": "national_id",
     "data": {
-      "firstName": "John",
-      "surname": "Doe",
-      "id_number": "12345678"
-    },
-    "webhook_url": "https://your-server.com/webhooks"
+      "idNumber": "12345678"
+    }
   }'`,
 	node: `const fetch = require('node-fetch');
 
 async function runVerification() {
-  const response = await fetch('https://trustcert-api.convex.site/v1/verifications', {
+  const response = await fetch('https://pleasant-sparrow-60.convex.site/v1/verifications', {
     method: 'POST',
     headers: {
       'X-API-KEY': 'your_api_key_here',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      type: 'enhanced_kyc',
+      type: 'national_id',
       data: {
-        firstName: 'John',
-        surname: 'Doe',
-        id_number: '12345678'
+        idNumber: '12345678'
       }
     })
   });
@@ -63,18 +58,16 @@ runVerification();`,
 	python: `import requests
 import json
 
-url = "https://trustcert-api.convex.site/v1/verifications"
+url = "https://pleasant-sparrow-60.convex.site/v1/verifications"
 headers = {
     "X-API-KEY": "your_api_key_here",
     "Content-Type": "application/json"
 }
 
 payload = {
-    "type": "enhanced_kyc",
+    "type": "national_id",
     "data": {
-        "firstName": "John",
-        "surname": "Doe",
-        "id_number": "12345678"
+        "idNumber": "12345678"
     }
 }
 
@@ -90,13 +83,11 @@ import (
 )
 
 func main() {
-    url := "https://trustcert-api.convex.site/v1/verifications"
+    url := "https://pleasant-sparrow-60.convex.site/v1/verifications"
     payload := map[string]interface{}{
-        "type": "enhanced_kyc",
+        "type": "national_id",
         "data": map[string]string{
-            "firstName": "John",
-            "surname": "Doe",
-            "id_number": "12345678",
+            "idNumber": "12345678",
         },
     }
 
@@ -114,15 +105,13 @@ func main() {
 }`,
 	php: `<?php
 
-$url = "https://trustcert-api.convex.site/v1/verifications";
+$url = "https://pleasant-sparrow-60.convex.site/v1/verifications";
 $apiKey = "your_api_key_here";
 
 $data = [
-    "type" => "enhanced_kyc",
+    "type" => "national_id",
     "data" => [
-        "firstName" => "John",
-        "surname" => "Doe",
-        "id_number" => "12345678"
+        "idNumber" => "12345678"
     ]
 ];
 
@@ -145,7 +134,7 @@ echo $response;
 export default function DocumentationPage() {
 	const [activeLang, setActiveLang] = useState("curl");
 	const [copied, setCopied] = useState(false);
-	const { member } = useApp();
+	const { } = useApp();
 
 	const handleCopy = () => {
 		navigator.clipboard.writeText(codeSamples[activeLang]);
@@ -323,16 +312,16 @@ export default function DocumentationPage() {
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-12">
 							<div className="space-y-6">
 								<p className="text-gray-500 font-medium leading-relaxed">
-									Every API request returns a standardized JSON object. Pay
-									attention to the{" "}
-									<code className="text-primary font-bold">jobId</code> as it is
-									required for polling verification results.
+									The TrustCert API returns a detailed JSON object. The{" "}
+									<code className="text-primary font-bold">data</code> field contains
+									the full verification results (e.g., full names, dates, and official statuses).
 								</p>
 								<div className="space-y-3">
 									{[
-										{ field: "success", type: "bool", desc: "Request status" },
+										{ field: "success", type: "bool", desc: "True if processed" },
 										{ field: "jobId", type: "uid", desc: "Reference ID" },
-										{ field: "status", type: "int", desc: "HTTP code" },
+										{ field: "data", type: "obj", desc: "Full Result Payload" },
+										{ field: "status", type: "int", desc: "HTTP status code" },
 									].map((item) => (
 										<div
 											key={item.field}
@@ -354,11 +343,15 @@ export default function DocumentationPage() {
 								<pre className="text-xs font-mono text-blue-300 leading-[1.8]">
 									{`{
   "success": true,
-  "jobId": "kyc_8h2j9sx",
   "status": 201,
-  "message": "Job initiated",
+  "jobId": "job_9x2k7z",
+  "message": "Verification completed",
   "data": {
-    "feesCharged": 15.00
+    "fullName": "John Doe",
+    "idNumber": "12345678",
+    "idStatus": "Valid",
+    "verificationStatus": "approved",
+    "verificationMessage": "ID verified"
   }
 }`}
 								</pre>
