@@ -3,6 +3,30 @@ import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 import { recordNotification, recordAuditLog } from "./audit";
 
+// Blocklist of common personal email domains
+const PERSONAL_EMAIL_DOMAINS = [
+  "gmail.com",
+  "yahoo.com",
+  "hotmail.com",
+  "outlook.com",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "me.com",
+  "aol.com",
+  "mail.com",
+  "protonmail.com",
+  "zoho.com",
+  "yandex.com",
+];
+
+function isPersonalEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  return PERSONAL_EMAIL_DOMAINS.includes(domain);
+}
+
+const PERSONAL_EMAIL_ERROR = "Please use a work email address. Personal emails (e.g. Gmail, Yahoo) are not permitted.";
+
 // Mock to verify an API key
 export const verifyApiKey = query({
   args: { apiKey: v.string() },
@@ -69,6 +93,11 @@ export const createCompanyAndUser = mutation({
     password: v.string(),
   },
   handler: async (ctx, args) => {
+    // Check if email is personal
+    if (isPersonalEmail(args.email)) {
+      throw new Error(PERSONAL_EMAIL_ERROR);
+    }
+
     // Check if user email already exists
     const existingUser = await ctx.db
       .query("users")
@@ -191,6 +220,11 @@ export const inviteUser = mutation({
     role: v.string(),
   },
   handler: async (ctx, args) => {
+    // Check if email is personal
+    if (isPersonalEmail(args.email)) {
+      throw new Error(PERSONAL_EMAIL_ERROR);
+    }
+
     // Check if user email already exists
     const existingUser = await ctx.db
       .query("users")
@@ -485,6 +519,167 @@ export const getUserPreferences = query({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     return user?.notificationPreferences || null;
+  },
+});
+
+export const startRegistration = mutation({
+  args: {
+    companyName: v.string(),
+    regNumber: v.string(),
+    country: v.string(),
+    location: v.string(),
+    domain: v.string(),
+    firstName: v.string(),
+    surname: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if email is personal
+    if (isPersonalEmail(args.email)) {
+      throw new Error(PERSONAL_EMAIL_ERROR);
+    }
+
+    // 1. Check if domain is already taken
+    const existingCompany = await ctx.db
+      .query("companies")
+      .withIndex("by_domain", (q) => q.eq("domain", args.domain))
+      .first();
+    
+    if (existingCompany) {
+      throw new Error("Company with this domain is already registered. Please use another domain.");
+    }
+
+    // 2. Check if user email already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existingUser) {
+      throw new Error("A user with this email address already exists.");
+    }
+
+    // 3. Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 mins
+
+    // 4. Store in registrationVerifications (upsert by email)
+    const existingVerification = await ctx.db
+      .query("registrationVerifications")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+    
+    if (existingVerification) {
+        await ctx.db.delete(existingVerification._id);
+    }
+
+    await ctx.db.insert("registrationVerifications", {
+      email: args.email,
+      otpCode,
+      expiresAt,
+      attempts: 0,
+      companyData: args,
+    });
+
+    return { success: true, otpCode }; // Return OTP for development/testing if emails are mocked
+  },
+});
+
+export const verifyOTP = mutation({
+  args: {
+    email: v.string(),
+    code: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const verification = await ctx.db
+      .query("registrationVerifications")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (!verification) {
+      throw new Error("Verification session not found. Please start over.");
+    }
+
+    if (verification.expiresAt < Date.now()) {
+      await ctx.db.delete(verification._id);
+      throw new Error("Verification code has expired. Please request a new one.");
+    }
+
+    if (verification.otpCode !== args.code) {
+      await ctx.db.patch(verification._id, {
+        attempts: (verification.attempts || 0) + 1,
+      });
+      
+      if ((verification.attempts || 0) >= 5) {
+          await ctx.db.delete(verification._id);
+          throw new Error("Too many failed attempts. Please restart registration.");
+      }
+
+      throw new Error("Invalid verification code. Please check and try again.");
+    }
+
+    return { success: true };
+  },
+});
+
+export const completeRegistration = mutation({
+  args: {
+    email: v.string(),
+    code: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Verify OTP one last time (security precaution)
+    const verification = await ctx.db
+      .query("registrationVerifications")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (!verification || verification.otpCode !== args.code) {
+      throw new Error("Invalid verification state.");
+    }
+
+    const { companyData } = verification;
+
+    // 2. Hash password
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(args.password, salt);
+
+    // 3. Create Company
+    const companyId = await ctx.db.insert("companies", {
+      name: companyData.companyName,
+      reg_number: companyData.regNumber,
+      country: companyData.country,
+      location: companyData.location,
+      domain: companyData.domain,
+      support_email: companyData.email,
+      status: "active",
+      createdAt: Date.now(),
+    });
+
+    // 4. Create User
+    const userId = await ctx.db.insert("users", {
+      companyId,
+      firstName: companyData.firstName,
+      surname: companyData.surname,
+      email: companyData.email,
+      password: hashedPassword,
+      role: "admin",
+      status: "active",
+      createdAt: Date.now(),
+    });
+
+    // 5. Initialize Balance
+    await ctx.db.insert("balances", {
+        companyId,
+        availableBalance: 0,
+        updatedAt: Date.now(),
+    });
+
+    // 6. Delete verification record
+    await ctx.db.delete(verification._id);
+
+    return { companyId, userId };
   },
 });
 

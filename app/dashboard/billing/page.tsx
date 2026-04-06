@@ -51,7 +51,7 @@ export default function BillingPage() {
     .sort((a, b) => b.createdAt - a.createdAt)[0];
 
   return (
-    <div className="flex flex-col gap-6 p-5">
+    <div className="flex flex-col gap-6 p-2">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
         <p className="text-gray-500 mt-1">

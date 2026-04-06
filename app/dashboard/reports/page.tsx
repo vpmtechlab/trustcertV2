@@ -42,23 +42,20 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("30");
   const [downloading, setDownloading] = useState(false);
 
-  // 1. Get the company context
-  const company = useQuery(api.companies.getDefaultCompany);
-  
-  // 2. Fetch analytics based on date range
+  // 1. Fetch analytics based on date range
   const analytics = useQuery(api.analytics.getDashboardAnalytics, 
-    company?._id ? { companyId: company._id, days: parseInt(dateRange) || undefined } : "skip"
+    member?.companyId ? { companyId: member.companyId as Id<"companies">, days: parseInt(dateRange) || undefined } : "skip"
   );
 
-  // 3. Fetch real report history
+  // 2. Fetch real report history
   const reports = useQuery(api.reports.listReports, 
-    company?._id ? { companyId: company._id, limit: 5 } : "skip"
+    member?.companyId ? { companyId: member.companyId as Id<"companies">, limit: 5 } : "skip"
   );
 
   const createReport = useMutation(api.reports.createReport);
 
   const allVerifications = useQuery(api.verifications.getVerificationsByCompany, 
-    company?._id ? { companyId: company._id } : "skip"
+    member?.companyId ? { companyId: member.companyId as Id<"companies"> } : "skip"
   );
 
   const handleDownload = (report: GeneratedReport) => {
@@ -128,7 +125,7 @@ export default function ReportsPage() {
   };
 
   const handleGlobalExport = async () => {
-    if (!company?._id || !member?.id || !allVerifications) {
+    if (!member?.companyId || !member?.id || !allVerifications) {
       toast.error("Data still loading, please wait...");
       return;
     }
@@ -139,7 +136,7 @@ export default function ReportsPage() {
       
       // 1. Create record in history
       await createReport({
-        companyId: company._id,
+        companyId: member.companyId as Id<"companies">,
         userId: member.id as Id<"users">,
         name: reportName.replace(/_/g, " "),
         type: "Full Data Export",
@@ -171,7 +168,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-8 p-6 max-w-[1600px] mx-auto">
+    <div className="flex flex-col gap-8 p-2 max-w-[1600px] mx-auto">
       {/* Reports Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>

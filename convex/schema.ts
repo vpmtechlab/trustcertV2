@@ -14,7 +14,15 @@ export default defineSchema({
     status: v.string(), // e.g., 'active', 'inactive'
     isSuperAdmin: v.optional(v.boolean()), // Flag for VPPMTechLab
     createdAt: v.number(), // Unix timestamp
-  }).index("by_name", ["name"]),
+  }).index("by_name", ["name"]).index("by_domain", ["domain"]),
+
+  registrationVerifications: defineTable({
+    email: v.string(),
+    otpCode: v.string(),
+    expiresAt: v.number(),
+    attempts: v.number(),
+    companyData: v.any(), // Stores { companyName, regNumber, country, location, domain, firstName, surname }
+  }).index("by_email", ["email"]),
 
   rolePermissions: defineTable({
     companyId: v.id("companies"),

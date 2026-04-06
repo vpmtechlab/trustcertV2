@@ -14,6 +14,7 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from "next/link";
 
 export function Topbar() {
 	const { sideBarOpen, setSideBarOpen, device, member, setMember, viewMode } =
@@ -88,16 +89,16 @@ export function Topbar() {
 
 			{/* Right Section: Avatar */}
 			<div id="header-actions" className="flex items-center gap-4">
-				<Button 
-					variant="outline" 
-					size="sm" 
-					onClick={() => (window as any).startAppTour?.()}
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => window.startAppTour?.()}
 					className="hidden md:flex items-center gap-2 rounded-xl border-gray-200 text-gray-600 hover:text-[#023e4a] hover:bg-teal-50/50"
 				>
 					<Shield size={14} className="text-teal-600" />
 					<span>Take Tour</span>
 				</Button>
-				
+
 				<NotificationDropdown />
 
 				<Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -121,10 +122,13 @@ export function Topbar() {
 						</div>
 
 						<div className="flex flex-col gap-1">
-							<div className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-100 rounded-md text-gray-700 transition-colors text-sm">
+							<Link
+								href="/dashboard/settings"
+								className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-100 rounded-md text-gray-700 transition-colors text-sm"
+							>
 								<User className="h-4 w-4" />
 								<span>Profile</span>
-							</div>
+							</Link>
 
 							{canSwitchView && (
 								<div
