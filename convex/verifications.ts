@@ -2,7 +2,7 @@ import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
-import { recordAuditLog } from "./audit";
+import { recordAuditLog, recordNotification } from "./audit";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -373,6 +373,14 @@ export const createVerification = mutation({
 			metadata: { serviceType: args.serviceType, source: args.source },
 		});
 
+		await recordNotification(ctx, {
+			companyId: args.companyId,
+			userId: args.userId,
+			title: "Verification Initiated",
+			message: `Searching for ${args.entityData?.firstName || args.entityData?.companyName || "entity"} via ${args.serviceType.replace("_", " ")}`,
+			type: "info",
+		});
+
 		return jobId;
 	},
 });
@@ -404,6 +412,14 @@ export const completeVerification = mutation({
 					status: args.resultStatus,
 					message: args.message ?? "No message",
 				},
+			});
+
+			await recordNotification(ctx, {
+				companyId: job.companyId,
+				userId: job.userId,
+				title: `Verification ${args.resultStatus === "approved" ? "Successful" : "Failed"}`,
+				message: args.message || `Check completed for ${job.serviceType.replace("_", " ")}`,
+				type: args.resultStatus === "approved" ? "success" : "error",
 			});
 		}
 	},

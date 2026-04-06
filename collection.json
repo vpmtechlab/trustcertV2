@@ -1,0 +1,49 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "TrustCert SDK",
+		"description": "Official Collection for TrustCert Verification APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Initiate Verification",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "X-API-KEY", "value": "{{apiKey}}", "type": "text" },
+					{ "key": "Content-Type", "value": "application/json", "type": "text" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"type\": \"national_id\",\n    \"data\": {\n        \"idNumber\": \"12345678\"\n    }\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/verifications",
+					"host": ["{{baseUrl}}"],
+					"path": ["verifications"]
+				},
+				"description": "Triggers a new verification job and returns the full result immediately."
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": { "type": "text/javascript", "exec": [""] }
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://pleasant-sparrow-60.convex.site/v1",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "api_live_fu2e4bb9knrt87tyitwlz",
+			"type": "string"
+		}
+	]
+}

@@ -26,6 +26,9 @@ type ReportData = {
 export function CustomReportGenerator() {
   const { member } = useApp();
   const company = useQuery(api.companies.getDefaultCompany);
+  const allVerifications = useQuery(api.verifications.getVerificationsByCompany, 
+    company?._id ? { companyId: company._id } : "skip"
+  );
   const createReport = useMutation(api.reports.createReport);
 
   const [startDate, setStartDate] = useState("");
@@ -57,6 +60,28 @@ export function CustomReportGenerator() {
 
       const reportName = `${typeLabel} - ${formatDate(new Date(startDate), "MMM dd")} to ${formatDate(new Date(endDate), "MMM dd")}`;
 
+      // --- REAL DATA FILTERING ---
+      if (!allVerifications) {
+        toast.error("Verification data is not yet loaded.");
+        return;
+      }
+
+      const startMs = new Date(startDate).getTime();
+      const endMs = new Date(endDate).getTime() + 86400000; // Include the end day
+
+      const filteredLogs = allVerifications.filter(v => {
+        const createdAt = v.createdAt;
+        if (createdAt < startMs || createdAt > endMs) return false;
+        if (status !== "all" && v.resultStatus !== status) return false;
+        // Optionally filter by report type logic here if needed
+        return true;
+      });
+
+      if (filteredLogs.length === 0) {
+        toast.error("No records found for the selected criteria.");
+        return;
+      }
+
       await createReport({
         companyId: company._id,
         userId: member.id as Id<"users">,
@@ -67,55 +92,30 @@ export function CustomReportGenerator() {
         config: { startDate, endDate, reportType, status },
       });
 
-      // --- IMMEDIATE DOWNLOAD ---
       const isCSV = format.toLowerCase() === "csv";
       
       if (isCSV) {
-        // Generate high-quality CSV content based on report type
-        const exportData: ReportData[] = [
-          {
-            Date: formatDate(new Date(), "yyyy-MM-dd HH:mm"),
-            Type: "HEADER",
-            Status: "INFO",
-            Entity: "REPORT METADATA",
-            Reference: "N/A",
-            "Period Start": startDate,
-            "Period End": endDate,
-            "Report Type": typeLabel
-          }
-        ];
-
-        // Add some realistic simulated records based on the type
-        // In a real app, this would be a query result for the date range
-        const statusLabel = status === "all" ? "COMPLETED" : status.toUpperCase();
-        
-        for (let i = 1; i <= 5; i++) {
-          exportData.push({
-            Date: formatDate(new Date(new Date(startDate).getTime() + i * 86400000), "yyyy-MM-dd"),
-            Type: typeLabel,
-            Status: statusLabel,
-            Entity: ["Acme Corp", "Global Industries", "John Doe", "Jane Smith", "Tech Solutions"][i-1],
-            Reference: `TR-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-            "Additional Info": "Verified via TrustCert Engine"
-          });
-        }
+        const exportData = filteredLogs.map(v => ({
+          Date: formatDate(v.createdAt, "yyyy-MM-dd HH:mm"),
+          Service: v.serviceName || v.serviceType,
+          Status: v.resultStatus.toUpperCase(),
+          Subject: v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+          "Reference ID": v._id.slice(-8).toUpperCase(),
+          "Fees (USD)": v.feesCharged || 0,
+          Source: v.source
+        }));
 
         downloadCSV(exportData, reportName.replace(/\s+/g, "_"));
       } else {
-        // Real PDF Generation using jsPDF
-        const headers = ["Date", "Type", "Status", "Entity", "Reference"];
-        const rows = [];
-        
-        const statusLabel = status === "all" ? "COMPLETED" : status.toUpperCase();
-        for (let i = 1; i <= 5; i++) {
-          rows.push([
-            formatDate(new Date(new Date(startDate).getTime() + i * 86400000), "yyyy-MM-dd"),
-            typeLabel,
-            statusLabel,
-            ["Acme Corp", "Global Industries", "John Doe", "Jane Smith", "Tech Solutions"][i-1],
-            `TR-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-          ]);
-        }
+        const headers = ["Date", "Service", "Status", "Subject", "Ref ID", "Fee"];
+        const rows = filteredLogs.map(v => [
+          formatDate(v.createdAt, "MM/dd/yyyy"),
+          v.serviceName || v.serviceType,
+          v.resultStatus.toUpperCase(),
+          v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+          v._id.slice(-6).toUpperCase(),
+          v.feesCharged ? `$${v.feesCharged.toFixed(2)}` : "$0.00"
+        ]);
 
         downloadPDF(headers, rows, reportName.replace(/\s+/g, "_"), typeLabel);
       }

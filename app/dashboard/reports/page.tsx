@@ -63,61 +63,66 @@ export default function ReportsPage() {
     const name = isReportObj ? report.name : report;
     const formatType = isReportObj ? report.format.toUpperCase() : "CSV";
     
-    // For CSV, we want actual verification data
-    if (formatType === "CSV") {
-      let dataToExport: Record<string, string | number | boolean | null | undefined>[] = [];
-      
-      if (!allVerifications) {
-        toast.error("Data is still loading. Please try again in a moment.");
-        return;
-      }
+    if (!allVerifications) {
+      toast.error("Verification data is still loading. Please wait.");
+      return;
+    }
 
-      // Filter by report config if available
-      dataToExport = allVerifications.filter(v => {
-        if (!isReportObj || !report.config) return true;
-        const { startDate, endDate, status } = report.config;
-        const createdAt = v.createdAt;
-        
-        if (startDate && createdAt < new Date(startDate).getTime()) return false;
-        if (endDate && createdAt > new Date(endDate).getTime()) return false;
-        if (status && status !== "all" && v.resultStatus !== status) return false;
-        
-        return true;
-      }).map(v => ({
+    // 1. Filter data based on the report's stored configuration
+    const filteredData = allVerifications.filter(v => {
+      // If it's a simple string call (legacy), don't filter
+      if (!isReportObj || !report.config) return true;
+      
+      const { startDate, endDate, status, allTime } = report.config;
+      if (allTime) return true;
+
+      const createdAt = v.createdAt;
+      
+      // Date range filtering
+      if (startDate) {
+        const startMs = new Date(startDate).getTime();
+        if (createdAt < startMs) return false;
+      }
+      if (endDate) {
+        const endMs = new Date(endDate).getTime() + 86400000;
+        if (createdAt > endMs) return false;
+      }
+      
+      // Status filtering
+      if (status && status !== "all" && v.resultStatus !== status) return false;
+      
+      return true;
+    });
+
+    if (filteredData.length === 0) {
+      toast.error("No records match this report's criteria.");
+      return;
+    }
+
+    // 2. Export based on format
+    if (formatType === "CSV") {
+      const exportData = filteredData.map(v => ({
         Date: format(v.createdAt, "yyyy-MM-dd HH:mm"),
         Service: v.serviceName || v.serviceType,
         Status: v.resultStatus.toUpperCase(),
-        Entity: v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+        Subject: v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
         "Reference ID": v._id.slice(-8).toUpperCase(),
         Fee: v.feesCharged ? `$${v.feesCharged.toFixed(2)}` : "$0.00",
         Source: v.source
       }));
 
-      if (dataToExport.length === 0) {
-        toast.error("No records found for the selected report criteria.");
-        return;
-      }
-
-      downloadCSV(dataToExport, name.replace(/[^a-z0-9]/gi, "_"));
+      downloadCSV(exportData, name.replace(/\s+/g, "_"));
       toast.success(`Downloaded ${name}.csv`);
-    } else if (formatType === "PDF") {
-      const headers = ["Date", "Service", "Status", "Entity", "Ref ID", "Fee"];
-      const rows = allVerifications ? allVerifications.filter(v => {
-          if (!isReportObj || !report.config) return true;
-          const { startDate, endDate, status } = report.config;
-          const createdAt = v.createdAt;
-          if (startDate && createdAt < new Date(startDate).getTime()) return false;
-          if (endDate && createdAt > new Date(endDate).getTime()) return false;
-          if (status && status !== "all" && v.resultStatus !== status) return false;
-          return true;
-        }).map(v => [
-          format(v.createdAt, "MM/dd/yy"),
-          v.serviceName || v.serviceType,
-          v.resultStatus.toUpperCase(),
-          v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
-          v._id.slice(-6).toUpperCase(),
-          v.feesCharged ? `$${v.feesCharged.toFixed(2)}` : "$0.00"
-        ]) : [];
+    } else {
+      const headers = ["Date", "Service", "Status", "Subject", "Ref ID", "Fee"];
+      const rows = filteredData.map(v => [
+        format(v.createdAt, "MM/dd/yy"),
+        v.serviceName || v.serviceType,
+        v.resultStatus.toUpperCase(),
+        v.entityData?.firstName ? `${v.entityData.firstName} ${v.entityData.lastName || ""}` : (v.entityData?.companyName || "N/A"),
+        v._id.slice(-6).toUpperCase(),
+        v.feesCharged ? `$${v.feesCharged.toFixed(2)}` : "$0.00"
+      ]);
       
       downloadPDF(headers, rows, name.replace(/\s+/g, "_"), name);
       toast.success(`Exported ${name} as PDF`);
