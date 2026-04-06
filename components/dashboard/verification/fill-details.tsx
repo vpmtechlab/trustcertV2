@@ -117,8 +117,8 @@ export function FillDetails({
 	const showNames = isKYB || isAML;
 	
 	// Determine main ID field label (KRA uses PIN, others use ID Number)
-	const idLabel = isKRA ? "KRA PIN" : isKYB ? "Company Number" : "ID Number";
-	const idPlaceholder = isKRA ? "Enter KRA PIN" : isKYB ? "Enter company number" : "Enter ID number";
+	const idLabel = isKRA ? "KRA PIN" : isKYB ? "Company Registration Number" : "ID Number";
+	const idPlaceholder = isKRA ? "Enter KRA PIN" : isKYB ? "Enter company registration number" : "Enter ID number";
 
 	return (
 		<div className="space-y-6">
@@ -197,7 +197,7 @@ export function FillDetails({
 				<div className="space-y-4">
 					{/* Name Fields (Conditional) */}
 					{showNames && (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div className="grid grid-cols-1 gap-4">
 							<div className="grid gap-2">
 								<Label htmlFor="firstName">{isKYB ? "Company Name" : "First Name"} *</Label>
 								<Input

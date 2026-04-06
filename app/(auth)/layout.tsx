@@ -18,7 +18,7 @@ export default function AuthLayout({
 	];
 
 	return (
-		<div className="min-h-screen max-md:h-fit w-full flex items-center justify-center p-4 lg:p-8 font-sans overflow-hidden relative">
+		<div className="min-h-screen w-full flex items-center justify-center p-4 lg:p-8 font-sans overflow-hidden relative">
 			{/* Main Background with Greenish Bluish Gradient and Blur */}
 			<div className="absolute inset-0 bg-linear-to-br from-[#0a192f] via-[#0f2e2e] to-[#0a142f] z-0" />
 			<div className="absolute inset-0 bg-teal-900/20 backdrop-blur-3xl z-0 pointer-events-none" />
@@ -27,7 +27,7 @@ export default function AuthLayout({
 			<div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-teal-500/10 rounded-full blur-[150px] pointer-events-none" />
 			<div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px] pointer-events-none" />
 
-			<div className="relative z-10 w-full max-w-[1400px] h-[90vh] min-h-[550px] max-h-[900px] bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col lg:flex-row ring-1 ring-gray-200/50 dark:bg-slate-900 dark:ring-white/10">
+			<div className="relative z-10 w-full max-w-[1400px] h-fit md:h-[90vh] md:min-h-[550px] md:max-h-[900px] bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col lg:flex-row ring-1 ring-gray-200/50 dark:bg-slate-900 dark:ring-white/10">
 				{/* Form Section - Left Side */}
 				<div className="w-full lg:w-1/2 p-6 lg:p-10 flex flex-col justify-center overflow-y-auto relative no-scrollbar">
 					<div className="w-full max-w-sm mx-auto">
