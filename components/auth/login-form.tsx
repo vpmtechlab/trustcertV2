@@ -17,6 +17,7 @@ import {
 	InputOTPGroup, 
 	InputOTPSlot 
 } from "@/components/ui/input-otp";
+import { ConvexError } from "convex/values";
 
 interface LoginResponse {
 	userId: string;
@@ -68,7 +69,11 @@ export function LoginForm() {
 			completeLogin(result as LoginResponse);
 		} catch (error) {
 			const errorMessage =
-				error instanceof Error ? error.message : "Invalid email or password.";
+				error instanceof ConvexError
+					? (error.data as string)
+					: error instanceof Error
+						? error.message
+						: "Invalid email or password.";
 			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
@@ -89,7 +94,12 @@ export function LoginForm() {
 			});
 			completeLogin(result as LoginResponse);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Invalid 2FA code.";
+			const errorMessage =
+				error instanceof ConvexError
+					? (error.data as string)
+					: error instanceof Error
+						? error.message
+						: "Invalid 2FA code.";
 			toast.error(errorMessage);
 		} finally {
 			setIsLoading(false);
