@@ -188,12 +188,14 @@ export const getAdminDashboardAnalytics = query({
     const now = Date.now();
     const threshold = args.days ? now - (args.days * 24 * 60 * 60 * 1000) : 0;
 
-    // 1. Fetch all companies and all jobs
+    // 1. Fetch data
     const companies = await ctx.db.query("companies").collect();
     const allJobs = await ctx.db.query("jobs").collect();
+    const allUsers = await ctx.db.query("users").collect();
 
-    // 2. Filter jobs by date range
+    // 2. Filter jobs and users by date range
     const filteredJobs = allJobs.filter(job => job.createdAt >= threshold);
+    const filteredUsers = allUsers.filter(user => user._creationTime >= threshold);
 
     // ── Global Metrics ────────────────────────────────────────────────────────
     const totalRevenue = filteredJobs.reduce((sum, job) => sum + (job.feesCharged || 0), 0);
@@ -206,16 +208,17 @@ export const getAdminDashboardAnalytics = query({
       ? Math.round((approvedJobs / (approvedJobs + failedJobs || 1)) * 100) 
       : 100;
 
-    // ── Volume & Revenue Trends (Area Chart) ──────────────────────────────────
+    // ── Volume, Revenue & User Growth Trends (Daily Mapping) ────────────────────
     const volumeDays = args.days || 30;
-    const trendDataMap = new Map<string, { date: string, count: number, revenue: number }>();
+    const trendDataMap = new Map<string, { date: string, count: number, revenue: number, userCount: number }>();
     
     for (let i = 0; i < volumeDays; i++) {
         const date = new Date(now - (i * 24 * 60 * 60 * 1000));
         const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-        trendDataMap.set(dateStr, { date: dateStr, count: 0, revenue: 0 });
+        trendDataMap.set(dateStr, { date: dateStr, count: 0, revenue: 0, userCount: 0 });
     }
 
+    // Map Jobs (Revenue & Count)
     filteredJobs.forEach(job => {
         const dateStr = new Date(job.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
         if (trendDataMap.has(dateStr)) {
@@ -224,6 +227,18 @@ export const getAdminDashboardAnalytics = query({
                 ...current,
                 count: current.count + 1,
                 revenue: current.revenue + (job.feesCharged || 0)
+            });
+        }
+    });
+
+    // Map Users (Growth)
+    filteredUsers.forEach(user => {
+        const dateStr = new Date(user._creationTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+        if (trendDataMap.has(dateStr)) {
+            const current = trendDataMap.get(dateStr)!;
+            trendDataMap.set(dateStr, {
+                ...current,
+                userCount: current.userCount + 1
             });
         }
     });

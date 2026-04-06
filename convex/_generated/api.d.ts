@@ -11,9 +11,11 @@
 import type * as admin from "../admin.js";
 import type * as analytics from "../analytics.js";
 import type * as apiKeys from "../apiKeys.js";
+import type * as api_actions from "../api_actions.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as balances from "../balances.js";
+import type * as billing from "../billing.js";
 import type * as companies from "../companies.js";
 import type * as debug from "../debug.js";
 import type * as emails from "../emails.js";
@@ -39,9 +41,11 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   analytics: typeof analytics;
   apiKeys: typeof apiKeys;
+  api_actions: typeof api_actions;
   audit: typeof audit;
   auth: typeof auth;
   balances: typeof balances;
+  billing: typeof billing;
   companies: typeof companies;
   debug: typeof debug;
   emails: typeof emails;
