@@ -1,7 +1,13 @@
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
-import { generateSecret, verify, generateURI } from "otplib";
+import { v, ConvexError } from "convex/values";
+import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from "otplib";
 import { recordAuditLog } from "./audit";
+
+// Standard "Authenticator" configuration for Google Authenticator / Authy compatibility
+const totp = new TOTP({
+  crypto: new NobleCryptoPlugin(),
+  base32: new ScureBase32Plugin(),
+});
 
 /**
  * Generate a new TOTP secret for a user.
@@ -11,10 +17,10 @@ export const generate2FASecret = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (!user) throw new Error("User not found");
+    if (!user) throw new ConvexError("User not found");
 
-    const secret = generateSecret();
-    const otpauth = generateURI({
+    const secret = totp.generateSecret();
+    const otpauth = totp.toURI({
       issuer: "TrustCert",
       label: user.email,
       secret,
@@ -34,13 +40,13 @@ export const verifyAndEnable2FA = mutation({
     code: v.string() 
   },
   handler: async (ctx, args) => {
-    const isValid = await verify({
-      token: args.code,
+    // IMPORTANT: verify() in v13 returns an object { valid: boolean, ... }
+    const result = await totp.verify(args.code, {
       secret: args.secret,
     });
 
-    if (!isValid) {
-      throw new Error("Invalid verification code. Please try again.");
+    if (!result.valid) {
+      throw new ConvexError("Invalid Code");
     }
 
     await ctx.db.patch(args.userId, {
@@ -77,16 +83,16 @@ export const verify2FACode = mutation({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user || !user.twoFactorSecret || !user.twoFactorEnabled) {
-      throw new Error("2FA is not enabled for this user.");
+      throw new ConvexError("2FA is not enabled");
     }
 
-    const isValid = await verify({
-      token: args.code,
+    // IMPORTANT: result is an object { valid: true/false }
+    const result = await totp.verify(args.code, {
       secret: user.twoFactorSecret,
     });
 
-    if (!isValid) {
-      throw new Error("Invalid 2FA code.");
+    if (!result.valid) {
+      throw new ConvexError("Invalid Code");
     }
 
     // Record Login in Audit Logs after successful 2FA verification
