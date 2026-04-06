@@ -1,14 +1,18 @@
 "use client";
 
 import React from "react";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AuditFeed } from "@/components/shared/audit-feed";
 import { Activity, ShieldCheck, Filter, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminAuditPage() {
-  const logs = useQuery(api.audit.getGlobalAuditLogs);
+  const { results: logs, status, loadMore } = usePaginatedQuery(
+    api.audit.getGlobalAuditLogs,
+    {},
+    { initialNumItems: 10 }
+  );
 
   return (
     <div className="p-4 space-y-12 min-h-screen bg-gray-50/20">
@@ -73,12 +77,32 @@ export default function AdminAuditPage() {
          </div>
 
          {/* Main Audit Feed */}
-         <div className="lg:col-span-3">
+         <div className="lg:col-span-3 space-y-8">
             <AuditFeed 
                logs={logs} 
                title="Platform Interactions" 
                showCompany={true} 
             />
+            
+            {/* Pagination Controls */}
+            {status !== "Exhausted" && (
+               <div className="flex justify-center pt-4">
+                  <Button
+                     onClick={() => loadMore(10)}
+                     disabled={status === "LoadingMore"}
+                     variant="outline"
+                     className="rounded-[2rem] px-12 py-6 font-black uppercase tracking-[0.2em] text-[10px] border-2 border-gray-100 hover:border-primary hover:text-primary transition-all shadow-sm disabled:opacity-50"
+                  >
+                     {status === "LoadingMore" ? "Synchronizing..." : "Load More Activity"}
+                  </Button>
+               </div>
+            )}
+
+            {status === "Exhausted" && logs.length > 0 && (
+               <p className="text-center text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] pt-4">
+                  End of Audit Trail
+               </p>
+            )}
          </div>
       </div>
     </div>

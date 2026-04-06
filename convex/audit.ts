@@ -1,5 +1,6 @@
-import { query, internalMutation } from "./_generated/server";
+import { query, internalMutation, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { Id, Doc } from "./_generated/dataModel";
 import { MutationCtx } from "./_generated/server";
 
@@ -45,24 +46,30 @@ export const recordLog = internalMutation({
  * Used by client-side dashboard audit view.
  */
 export const getAuditLogsByCompany = query({
-  args: { companyId: v.id("companies") },
+  args: { 
+    companyId: v.id("companies"),
+    paginationOpts: paginationOptsValidator 
+  },
   handler: async (ctx, args) => {
     const logs = await ctx.db
       .query("auditLogs")
       .withIndex("by_company", (q) => q.eq("companyId", args.companyId))
       .order("desc")
-      .collect();
+      .paginate(args.paginationOpts);
 
     // Enrich with user information
-    return await Promise.all(
-      logs.map(async (log) => {
-        const user = log.userId ? await ctx.db.get(log.userId) : null;
-        return {
-          ...log,
-          userName: user ? `${user.firstName} ${user.surname}` : "System",
-        };
-      })
-    );
+    return {
+      ...logs,
+      page: await Promise.all(
+        logs.page.map(async (log) => {
+          const user = log.userId ? await ctx.db.get(log.userId) : null;
+          return {
+            ...log,
+            userName: user ? `${user.firstName} ${user.surname}` : "System",
+          };
+        })
+      ),
+    };
   },
 });
 
@@ -71,25 +78,28 @@ export const getAuditLogsByCompany = query({
  * Used by super-admin audit view.
  */
 export const getGlobalAuditLogs = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
     const logs = await ctx.db
       .query("auditLogs")
       .order("desc")
-      .take(100);
+      .paginate(args.paginationOpts);
 
     // Enrich with company and user information
-    return await Promise.all(
-      logs.map(async (log) => {
-        const user = log.userId ? await ctx.db.get(log.userId) : null;
-        const company = log.companyId ? await ctx.db.get(log.companyId) : null;
-        return {
-          ...log,
-          userName: user ? `${user.firstName} ${user.surname}` : "System",
-          companyName: company?.name || "Global",
-        };
-      })
-    );
+    return {
+      ...logs,
+      page: await Promise.all(
+        logs.page.map(async (log) => {
+          const user = log.userId ? await ctx.db.get(log.userId) : null;
+          const company = log.companyId ? await ctx.db.get(log.companyId) : null;
+          return {
+            ...log,
+            userName: user ? `${user.firstName} ${user.surname}` : "System",
+            companyName: company?.name || "Global",
+          };
+        })
+      ),
+    };
   },
 });
 
@@ -131,7 +141,6 @@ export const getActiveNotificationsByUser = query({
 /**
  * Mark all notifications as read for a specific user.
  */
-import { mutation } from "./_generated/server";
 export const clearNotifications = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
