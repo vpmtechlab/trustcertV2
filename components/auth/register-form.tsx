@@ -16,6 +16,7 @@ import {
 	InputOTPGroup,
 	InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { getErrorMessage } from "@/lib/utils";
 
 export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 	const router = useRouter();
@@ -107,8 +108,7 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 				setStep(3);
 			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Registration failed.";
-			toast.error(errorMessage);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsLoading(false);
 		}
@@ -128,8 +128,7 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 			toast.success("Email verified successfully!");
 			setStep(4);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Verification failed.";
-			toast.error(errorMessage);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsLoading(false);
 		}
@@ -172,8 +171,7 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
 				router.push("/login");
 			}
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : "Completion failed.";
-			toast.error(errorMessage);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsLoading(false);
 		}

@@ -29,6 +29,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import Link from "next/link";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function CompanyDetailsPage() {
 	const params = useParams();
@@ -72,7 +73,7 @@ export default function CompanyDetailsPage() {
 			});
 			toast.success("Company updated successfully!");
 		} catch (error) {
-			toast.error("Failed to update company.");
+			toast.error(getErrorMessage(error));
 			console.error(error);
 		} finally {
 			setIsSaving(false);

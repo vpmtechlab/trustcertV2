@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import bcrypt from "bcryptjs";
 import { recordNotification, recordAuditLog } from "./audit";
 
@@ -107,7 +107,7 @@ export const createCompanyAndUser = mutation({
   handler: async (ctx, args) => {
     // Check if email is personal
     if (isPersonalEmail(args.email)) {
-      throw new Error(PERSONAL_EMAIL_ERROR);
+      throw new ConvexError(PERSONAL_EMAIL_ERROR);
     }
 
     // Check if user email already exists
@@ -117,7 +117,7 @@ export const createCompanyAndUser = mutation({
       .first();
 
     if (existingUser) {
-      throw new Error("User with this email already exists.");
+      throw new ConvexError("User with this email already exists.");
     }
 
     // 1. Create company
@@ -174,20 +174,20 @@ export const login = mutation({
       .first();
 
     if (!user) {
-      throw new Error("Invalid email or password");
+      throw new ConvexError("Invalid email or password");
     }
 
     // Compare passwords
     if (!user.password) {
-      throw new Error("Invalid email or password");
+      throw new ConvexError("Invalid email or password");
     }
     const isMatch = bcrypt.compareSync(password, user.password);
     if (!isMatch) {
-      throw new Error("Invalid email or password");
+      throw new ConvexError("Invalid email or password");
     }
 
     if (user.status !== "active" && user.status !== "invited") {
-      throw new Error("Account is inactive. Please contact support.");
+      throw new ConvexError("Account is inactive. Please contact support.");
     }
 
     // If 2FA is enabled, return a temporary flag instead of complete member data
@@ -234,7 +234,7 @@ export const inviteUser = mutation({
   handler: async (ctx, args) => {
     // Check if email is personal
     if (isPersonalEmail(args.email)) {
-      throw new Error(PERSONAL_EMAIL_ERROR);
+      throw new ConvexError(PERSONAL_EMAIL_ERROR);
     }
 
     // Check if user email already exists
@@ -244,7 +244,7 @@ export const inviteUser = mutation({
       .first();
 
     if (existingUser) {
-      throw new Error("User with this email already exists.");
+      throw new ConvexError("User with this email already exists.");
     }
 
     // Generate a random temporary password
@@ -312,7 +312,7 @@ export const changePassword = mutation({
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (!user) throw new Error("User not found");
+    if (!user) throw new ConvexError("User not found");
 
     // Validation: 8+ chars, uppercase, lowercase, special char
     const hasUpperCase = /[A-Z]/.test(args.newPassword);
@@ -320,7 +320,7 @@ export const changePassword = mutation({
     const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(args.newPassword);
     
     if (args.newPassword.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
-      throw new Error("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
+      throw new ConvexError("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
     }
 
     const salt = bcrypt.genSaltSync(10);
@@ -348,11 +348,11 @@ export const setupPasswordWithToken = mutation({
       .first();
 
     if (!user) {
-      throw new Error("Invalid or expired setup link. Please contact your administrator.");
+      throw new ConvexError("Invalid or expired setup link. Please contact your administrator.");
     }
 
     if (user.setupTokenExpires && Date.now() > user.setupTokenExpires) {
-      throw new Error("Setup link has expired. Please contact your administrator.");
+      throw new ConvexError("Setup link has expired. Please contact your administrator.");
     }
 
     const hasUpperCase = /[A-Z]/.test(args.newPassword);
@@ -360,7 +360,7 @@ export const setupPasswordWithToken = mutation({
     const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/.test(args.newPassword);
     
     if (args.newPassword.length < 8 || !hasUpperCase || !hasLowerCase || !hasSpecialChar) {
-      throw new Error("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
+      throw new ConvexError("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, and a special character.");
     }
 
     const salt = bcrypt.genSaltSync(10);
@@ -434,7 +434,7 @@ export const updateUserProfile = mutation({
     const { userId, performedBy, ...updateData } = args;
     const user = await ctx.db.get(userId);
     if (!user) {
-      throw new Error("User not found");
+      throw new ConvexError("User not found");
     }
 
     const roleChanged = updateData.role && updateData.role !== user.role;
@@ -470,7 +470,7 @@ export const deleteUser = mutation({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) {
-      throw new Error("User not found");
+      throw new ConvexError("User not found");
     }
 
     // Record the deletion in audit log BEFORE actual delete since we need the user object
@@ -548,7 +548,7 @@ export const startRegistration = mutation({
   handler: async (ctx, args) => {
     // Check if email is personal
     if (isPersonalEmail(args.email)) {
-      throw new Error(PERSONAL_EMAIL_ERROR);
+      throw new ConvexError(PERSONAL_EMAIL_ERROR);
     }
 
     // 1. Check if domain is already taken
@@ -558,7 +558,7 @@ export const startRegistration = mutation({
       .first();
     
     if (existingCompany) {
-      throw new Error("Company with this domain is already registered. Please use another domain.");
+      throw new ConvexError("Company with this domain is already registered. Please use another domain.");
     }
 
     // 2. Check if user email already exists
@@ -568,7 +568,7 @@ export const startRegistration = mutation({
       .first();
 
     if (existingUser) {
-      throw new Error("A user with this email address already exists.");
+      throw new ConvexError("A user with this email address already exists.");
     }
 
     // 3. Generate 6-digit OTP
@@ -609,12 +609,12 @@ export const verifyOTP = mutation({
       .first();
 
     if (!verification) {
-      throw new Error("Verification session not found. Please start over.");
+      throw new ConvexError("Verification session not found. Please start over.");
     }
 
     if (verification.expiresAt < Date.now()) {
       await ctx.db.delete(verification._id);
-      throw new Error("Verification code has expired. Please request a new one.");
+      throw new ConvexError("Verification code has expired. Please request a new one.");
     }
 
     if (verification.otpCode !== args.code) {
@@ -624,10 +624,10 @@ export const verifyOTP = mutation({
       
       if ((verification.attempts || 0) >= 5) {
           await ctx.db.delete(verification._id);
-          throw new Error("Too many failed attempts. Please restart registration.");
+          throw new ConvexError("Too many failed attempts. Please restart registration.");
       }
 
-      throw new Error("Invalid verification code. Please check and try again.");
+      throw new ConvexError("Invalid verification code. Please check and try again.");
     }
 
     return { success: true };
@@ -648,7 +648,7 @@ export const completeRegistration = mutation({
       .first();
 
     if (!verification || verification.otpCode !== args.code) {
-      throw new Error("Invalid verification state.");
+      throw new ConvexError("Invalid verification state.");
     }
 
     const { companyData } = verification;

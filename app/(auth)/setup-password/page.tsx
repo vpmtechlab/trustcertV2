@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
 import { useApp } from "@/components/providers/app-provider";
+import { getErrorMessage } from "@/lib/utils";
 
 function SetupPasswordForm() {
 	const router = useRouter();
@@ -101,9 +102,7 @@ function SetupPasswordForm() {
 			// Redirect to dashboard
 			router.push("/dashboard");
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to update password.",
-			);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsLoading(false);
 		}

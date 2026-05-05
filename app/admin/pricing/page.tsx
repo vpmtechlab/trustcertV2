@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import AddPriceModal from "@/components/modals/add-price-modal";
 import { Plus } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function SuperAdminPricingPage() {
   const prices = useQuery(api.pricing.getPrices);
@@ -47,7 +48,7 @@ export default function SuperAdminPricingPage() {
       toast.success("Price updated successfully!");
       setEditingId(null);
     } catch (error: any) {
-      toast.error("Failed to update price: " + error.message);
+      toast.error(getErrorMessage(error));
     } finally {
       setIsSaving(false);
     }

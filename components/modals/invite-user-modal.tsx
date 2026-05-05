@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useApp } from "@/components/providers/app-provider";
 import { Id } from "@/convex/_generated/dataModel";
+import { getErrorMessage } from "@/lib/utils";
 
 interface InviteUserModalProps {
 	isOpen: boolean;
@@ -122,9 +123,7 @@ export default function InviteUserModal({
 			setRole("Compliance Officer");
 			onClose();
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to invite user.",
-			);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsLoading(false);
 		}

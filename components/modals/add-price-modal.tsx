@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils";
 
 interface AddPriceModalProps {
   isOpen: boolean;
@@ -48,8 +49,7 @@ export default function AddPriceModal({ isOpen, onClose }: AddPriceModalProps) {
       
       onClose();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to add service pricing.";
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
