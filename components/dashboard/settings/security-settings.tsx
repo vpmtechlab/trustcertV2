@@ -26,6 +26,7 @@ import {
 	Shield,
 } from "lucide-react";
 import Image from "next/image";
+import { getErrorMessage } from "@/lib/utils";
 
 export function SecuritySettings() {
 	const { member } = useContext(AppContext);
@@ -76,9 +77,7 @@ export function SecuritySettings() {
 			toast.success("Password updated successfully!");
 			setPasswords({ current: "", new: "", confirm: "" });
 		} catch (error: unknown) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Failed to update password.";
-			toast.error(errorMessage);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setLoading(false);
 		}
@@ -92,8 +91,8 @@ export function SecuritySettings() {
 			try {
 				await disable2FA({ userId: member.id as Id<"users"> });
 				toast.success("Two-Factor Authentication disabled.");
-			} catch {
-				toast.error("Failed to disable 2FA.");
+			} catch (error) {
+				toast.error(getErrorMessage(error));
 			}
 			return;
 		}
@@ -110,8 +109,8 @@ export function SecuritySettings() {
 			const data = await generateSecret({ userId: member.id as Id<"users"> });
 			setSetupData(data);
 			setSetupStep("qr");
-		} catch {
-			toast.error("Failed to generate 2FA secret.");
+		} catch (error) {
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsGenerating(false);
 		}
@@ -130,9 +129,7 @@ export function SecuritySettings() {
 			setIs2FAModalOpen(false);
 			resetSetup();
 		} catch (error: unknown) {
-			const errorMessage =
-				error instanceof Error ? error.message : "Invalid verification code.";
-			toast.error(errorMessage);
+			toast.error(getErrorMessage(error));
 		} finally {
 			setIsVerifying(false);
 		}

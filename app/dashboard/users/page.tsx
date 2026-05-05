@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Id } from "@/convex/_generated/dataModel";
 import { User } from "@/types/user";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function UserManagementPage() {
 	const { setShowInviteModal, member } = useApp();
@@ -124,7 +125,7 @@ export default function UserManagementPage() {
 			setSelectedUser(null);
 		} catch (error) {
 			console.error("Failed to delete user:", error);
-			toast.error("Failed to delete user. Please try again.");
+			toast.error(getErrorMessage(error));
 		}
 	};
 
@@ -146,7 +147,7 @@ export default function UserManagementPage() {
 			setSelectedUser(null);
 		} catch (error) {
 			console.error("Failed to update user:", error);
-			toast.error("Failed to update user. Please try again.");
+			toast.error(getErrorMessage(error));
 		}
 	};
 

@@ -1,5 +1,5 @@
 import { query, mutation, action } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 import { recordAuditLog, recordNotification } from "./audit";
@@ -463,7 +463,7 @@ export const runVerification = action({
 			companyId: args.companyId,
 		});
 		if (availableBalance < verificationCost) {
-			throw new Error("Insufficient balance to initiate verification.");
+			throw new ConvexError("Insufficient balance to initiate verification.");
 		}
 
 		// 3. Create Pending Job (Initialize feesCharged as 0)
@@ -517,7 +517,7 @@ export const runVerification = action({
 					(args.entityData as EntityData).pin ??
 					(args.entityData as EntityData).idNumber;
 				if (!idNumber)
-					throw new Error("KRA/Tax verification requires an ID number or PIN.");
+					throw new ConvexError("KRA/Tax verification requires an ID number or PIN.");
 
 				const gavaResult = await fetchGavaKraPin(idNumber);
 				const gavaCode = String(gavaResult.ResponseCode);

@@ -11,6 +11,7 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 export function ProfileSettings() {
   const { member, setMember } = useContext(AppContext);
@@ -70,7 +71,7 @@ export function ProfileSettings() {
 
       toast.success("Profile updated successfully!");
     } catch (error) {
-      toast.error("Failed to update profile.");
+      toast.error(getErrorMessage(error));
       console.error(error);
     } finally {
       setLoading(false);

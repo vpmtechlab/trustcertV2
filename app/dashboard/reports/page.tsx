@@ -20,6 +20,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useApp } from "@/components/providers/app-provider";
 import { format } from "date-fns";
 import { downloadCSV, downloadPDF } from "@/lib/export-utils";
+import { getErrorMessage } from "@/lib/utils";
 
 // Types for our reports
 interface GeneratedReport {
@@ -165,7 +166,7 @@ export default function ReportsPage() {
       downloadCSV(exportData, reportName);
       toast.success("Full report generated and downloaded!");
     } catch (error) {
-      toast.error("Failed to generate export.");
+      toast.error(getErrorMessage(error));
       console.error(error);
     } finally {
       setTimeout(() => setDownloading(false), 1000);
